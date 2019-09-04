@@ -16,6 +16,8 @@ from majortom_gateway.command import Command
 
 logger = logging.getLogger(__name__)
 
+MAX_QUEUE_LENGTH = 10000
+
 
 class GatewayAPI:
     def __init__(self, host, gateway_token, ssl_verify=False, basic_auth=None, https=True, ssl_ca_bundle=None, command_callback=None, error_callback=None, rate_limit_callback=None, cancel_callback=None):
@@ -166,6 +168,7 @@ class GatewayAPI:
         while len(self.queued_payloads) > 0 and self.websocket:
             payload = self.queued_payloads.pop(0)
             await self.transmit(payload)
+            await asyncio.sleep(0.1)
 
     async def transmit(self, payload):
         if self.websocket:
@@ -174,7 +177,11 @@ class GatewayAPI:
                 await self.websocket.send(json.dumps(payload))
             except Exception as e:
                 self.websocket = None
-                self.queued_payloads.append(payload)
+                if len(self.queued_payloads) < MAX_QUEUE_LENGTH:
+                    self.queued_payloads.append(payload)
+                else:
+                    logger.warn(
+                        f"Major Tom Client local queue maxed out at {MAX_QUEUE_LENGTH} items")
         else:
             # Switch to https://docs.python.org/3/library/asyncio-queue.html
             self.queued_payloads.append(payload)

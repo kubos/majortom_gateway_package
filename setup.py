@@ -6,8 +6,8 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name="majortom_gateway",
     version="0.0.2",
-    author="Jesse Coffey",
-    author_email="jcoffey@kubos.com",
+    author="Kubos",
+    author_email="open-source@kubos.com",
     description="A package for interacting with Major Tom's Gateway API.",
     long_description=long_description,
     long_description_content_type="text/markdown",
