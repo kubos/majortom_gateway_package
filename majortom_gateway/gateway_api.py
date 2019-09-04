@@ -81,7 +81,7 @@ class GatewayAPI:
             elif e.status_code == 404:
                 logger.warning("Received 404 when trying to connect, retrying.")
                 self.websocket = None
-                return
+                raise(e)
 
         logger.info("Connected to Major Tom")
         self.websocket = websocket
@@ -98,9 +98,25 @@ class GatewayAPI:
                 self.websocket = None
                 logger.warning("Connection error encountered, retrying in 5 seconds ({})".format(e))
                 await asyncio.sleep(5)
+            except websockets.exceptions.InvalidStatusCode as e:
+                self.websocket = None
+                if e.status_code == 401:
+                    e.args = [
+                        f"{self.host} requires BasicAuth credentials. Please either include that argument or check the validity. Websocket Error: {e.args}"]
+                    raise(e)
+                elif e.status_code == 403:
+                    e.args = [
+                        f"Gateway Token is Invalid: {self.gateway_token} Websocket Error: {e.args}"]
+                    raise(e)
+                elif e.status_code == 404:
+                    logger.warning("Received 404 when trying to connect, retrying.")
+                    await asyncio.sleep(5)
+                else:
+                    e.args = [f"Unknown status code returned: {e.status_code}"]
+                    raise(e)
             except Exception as e:
                 logger.error("Unhandled {} in `connect_with_retries`".format(e.__class__.__name__))
-                raise e
+                raise(e)
 
     async def handle_message(self, json_data):
         message = json.loads(json_data)
