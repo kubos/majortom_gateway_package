@@ -1,9 +1,10 @@
 workflow "Publish" {
+  on = "push"
   resolves = ["publish-to-pypi"]
-  on = "release"
 }
 
 action "publish-to-pypi" {
+  needs = "Master"
   uses = "mariamrf/py-package-publish-action@master"
   secrets = ["TWINE_PASSWORD", "TWINE_USERNAME"]
   env = {
@@ -13,3 +14,7 @@ action "publish-to-pypi" {
 }
 
 # Filter for master branch
+action "Master" {
+  uses = "actions/bin/filter@master"
+  args = "branch master"
+}
