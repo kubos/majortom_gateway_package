@@ -181,10 +181,14 @@ class GatewayAPI:
                     self.queued_payloads.append(payload)
                 else:
                     logger.warn(
-                        f"Major Tom Client local queue maxed out at {MAX_QUEUE_LENGTH} items")
+                        f"Major Tom Client local queue maxed out at {MAX_QUEUE_LENGTH} items. Packet is being dropped.")
         else:
             # Switch to https://docs.python.org/3/library/asyncio-queue.html
-            self.queued_payloads.append(payload)
+            if len(self.queued_payloads) < MAX_QUEUE_LENGTH:
+                self.queued_payloads.append(payload)
+            else:
+                logger.warn(
+                    f"Major Tom Client local queue maxed out at {MAX_QUEUE_LENGTH} items. Packet is being dropped.")
 
     async def transmit_metrics(self, metrics):
         """
