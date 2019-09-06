@@ -51,7 +51,9 @@ class GatewayAPI:
             self.gateway_endpoint = "wss://" + self.host + "/gateway_api/v1.0"
 
     async def connect(self):
-        if not self.http:
+        if self.http:
+            ssl_context = None
+        else:
             ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
             if self.ssl_verify:
@@ -62,9 +64,6 @@ class GatewayAPI:
             else:
                 ssl_context.check_hostname = False
                 ssl_context.verify_mode = ssl.CERT_NONE
-
-        else:
-            ssl_context = None
 
         logger.info("Connecting to Major Tom")
         self.websocket = await websockets.connect(self.gateway_endpoint,
