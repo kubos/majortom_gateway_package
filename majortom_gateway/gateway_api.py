@@ -20,12 +20,12 @@ MAX_QUEUE_LENGTH = 10000
 
 
 class GatewayAPI:
-    def __init__(self, host, gateway_token, ssl_verify=False, basic_auth=None, https=True, ssl_ca_bundle=None, command_callback=None, error_callback=None, rate_limit_callback=None, cancel_callback=None):
+    def __init__(self, host, gateway_token, ssl_verify=False, basic_auth=None, http=False, ssl_ca_bundle=None, command_callback=None, error_callback=None, rate_limit_callback=None, cancel_callback=None):
         self.host = host
         self.gateway_token = gateway_token
         self.ssl_verify = ssl_verify
         self.basic_auth = basic_auth
-        self.https = https
+        self.http = http
         if ssl_verify is True and ssl_ca_bundle is None:
             raise(ValueError('"ssl_ca_bundle" must be a valid path to a certificate bundle if "ssl_verify" is True. Could fetch from https://curl.haxx.se/docs/caextract.html'))
         else:
@@ -45,13 +45,13 @@ class GatewayAPI:
             self.headers['Authorization'] = f'Basic {userAndPass}'
 
     def __build_endpoints(self):
-        if self.https:
-            self.gateway_endpoint = "wss://" + self.host + "/gateway_api/v1.0"
-        else:
+        if self.http:
             self.gateway_endpoint = "ws://" + self.host + "/gateway_api/v1.0"
+        else:
+            self.gateway_endpoint = "wss://" + self.host + "/gateway_api/v1.0"
 
     async def connect(self):
-        if self.https:
+        if not self.http:
             ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
             if self.ssl_verify:
@@ -67,29 +67,14 @@ class GatewayAPI:
             ssl_context = None
 
         logger.info("Connecting to Major Tom")
-        try:
-            websocket = await websockets.connect(self.gateway_endpoint,
-                                                 extra_headers=self.headers,
-                                                 ssl=ssl_context)
-        except websockets.exceptions.InvalidStatusCode as e:
-            if e.status_code == 401:
-                e.args = [
-                    f"{self.host} requires BasicAuth credentials. Please either include that argument or check the validity. Websocket Error: {e.args}"]
-                raise(e)
-            elif e.status_code == 403:
-                e.args = [
-                    f"Gateway Token is Invalid: {self.gateway_token} Websocket Error: {e.args}"]
-                raise(e)
-            elif e.status_code == 404:
-                logger.warning("Received 404 when trying to connect, retrying.")
-                self.websocket = None
-                raise(e)
+        self.websocket = await websockets.connect(self.gateway_endpoint,
+                                                  extra_headers=self.headers,
+                                                  ssl=ssl_context)
 
         logger.info("Connected to Major Tom")
-        self.websocket = websocket
         await asyncio.sleep(1)
         await self.empty_queue()
-        async for message in websocket:
+        async for message in self.websocket:
             await self.handle_message(message)
 
     async def connect_with_retries(self):
@@ -312,10 +297,10 @@ class GatewayAPI:
         })
 
     def download_staged_file(self, gateway_download_path):
-        if self.https:
-            download_url = "https://"
-        else:
+        if self.http:
             download_url = "http://"
+        else:
+            download_url = "https://"
         download_url = download_url + self.host + gateway_download_path
 
         # Download the file
@@ -344,10 +329,10 @@ class GatewayAPI:
         }
 
         # POST file info to Major Tom and get upload info
-        if self.https:
-            request_url = "https://"
-        else:
+        if self.http:
             request_url = "http://"
+        else:
+            request_url = "https://"
         request_url += self.host + "/rails/active_storage/direct_uploads"
         logging.debug(f"Requesting {request_url} with data: {request_data}")
         request_r = requests.post(url=request_url, headers=self.headers, data=request_data)
@@ -390,10 +375,10 @@ class GatewayAPI:
             file_data["metadata"] = metadata
 
         # POST file data to Major Tom
-        if self.https:
-            file_data_url = "https://"
-        else:
+        if self.http:
             file_data_url = "http://"
+        else:
+            file_data_url = "https://"
         file_data_url += self.host + "/gateway_api/v1.0/downlinked_files"
         file_data_r = requests.post(url=file_data_url, headers=self.headers, json=file_data)
         if file_data_r.status_code != 200:
