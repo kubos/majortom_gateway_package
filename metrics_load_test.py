@@ -2,8 +2,8 @@ import logging
 import asyncio
 import time
 import argparse
+from random import randint
 from majortom_gateway import GatewayAPI
-from demo.demo_sat import DemoSat
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,25 @@ else:
         level=logging.DEBUG,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
+
+async def stream_measurements(systems, subsystems, metrics, frequency):
+    await asyncio.sleep(5)
+    while True:
+        for system in range(0, systems):
+            for subsystem in range(0, subsystems):
+                measurements = []
+                for metric in range(0, metrics):
+                    measurements.append({
+                        "system": "system"+str(system),
+                        "subsystem": "subsystem"+str(subsystem),
+                        "metric": "metric"+str(metric),
+                        "value": randint(-100, 100),
+                        "timestamp": time.time()*1000
+                    })
+                asyncio.ensure_future(gateway.transmit_metrics(measurements))
+        await asyncio.sleep(1/frequency)
+
+
 logger.info("Starting up!")
 loop = asyncio.get_event_loop()
 
@@ -75,12 +94,17 @@ gateway = GatewayAPI(
     host=args.majortomhost,
     gateway_token=args.gatewaytoken,
     basic_auth=args.basicauth,
-    command_callback=demo_sat.command_callback,
-    cancel_callback=demo_sat.cancel_callback,
     http=args.http)
 
 logger.debug("Connecting to MajorTom")
 asyncio.ensure_future(gateway.connect_with_retries())
+
+logger.info("Starting Measurement Stream")
+asyncio.ensure_future(stream_measurements(
+    systems=args.systems,
+    subsystems=args.subsystems,
+    metrics=args.metrics,
+    frequency=args.frequency))
 
 logger.debug("Starting Event Loop")
 loop.run_forever()
