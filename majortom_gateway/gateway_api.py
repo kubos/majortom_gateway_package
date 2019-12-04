@@ -160,6 +160,8 @@ class GatewayAPI:
             try:
                 await self.websocket.send(json.dumps(payload))
             except Exception as e:
+                logger.error(
+                    f"Websocket experienced an error when attempting to transmit: {type(e).__name__}: {e}")
                 self.websocket = None
                 if len(self.queued_payloads) < MAX_QUEUE_LENGTH:
                     self.queued_payloads.append(payload)
@@ -167,6 +169,8 @@ class GatewayAPI:
                     logger.warn(
                         f"Major Tom Client local queue maxed out at {MAX_QUEUE_LENGTH} items. Packet is being dropped.")
         else:
+            logger.info(
+                "Websocket is not connected, queueing payload until connection is re-established.")
             # Switch to https://docs.python.org/3/library/asyncio-queue.html
             if len(self.queued_payloads) < MAX_QUEUE_LENGTH:
                 self.queued_payloads.append(payload)
