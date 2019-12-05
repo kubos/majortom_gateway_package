@@ -1,3 +1,5 @@
+[![CircleCI](https://circleci.com/gh/kubos/majortom_gateway_package.svg?style=svg)](https://circleci.com/gh/kubos/majortom_gateway_package)
+
 # Major Tom Gateway API Package
 Python Package for interacting with Major Tom's Gateway API.
 
