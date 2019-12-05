@@ -1,3 +1,5 @@
 requests
 websockets
 pytest
+setuptools
+wheel
