@@ -1,6 +1,6 @@
 import setuptools
 
-VERSION = "0.0.6"
+VERSION = "0.0.7"
 
 with open("README.md", "r") as readme:
     readme_content = readme.read()
@@ -15,7 +15,7 @@ setuptools.setup(
     long_description=readme_content,
     long_description_content_type="text/markdown",
     url="https://github.com/kubos/majortom_gateway_package",
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
@@ -26,5 +26,9 @@ setuptools.setup(
         "Operating System :: OS Independent"
     ],
     python_requires='>=3.6',
-    keywords='majortom major_tom gateway kubos major tom satellite'
+    keywords='majortom major_tom gateway kubos major tom satellite',
+    install_requires=[
+        "websockets",
+        "requests"
+    ]
 )
