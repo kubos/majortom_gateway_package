@@ -31,9 +31,6 @@ async def test_connect(event_loop):
     headers = {
         "X-Gateway-Token": token
     }
-    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    ssl_context.check_hostname = False
-    ssl_context.verify_mode = ssl.CERT_NONE
 
     with mock.patch("websockets.connect", new=CoroutineMock()) as mocked_websocket:
         gw = GatewayAPI(host=url, gateway_token=token)
