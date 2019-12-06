@@ -3,3 +3,5 @@ websockets
 pytest
 setuptools
 wheel
+pytest-asyncio
+asynctest
