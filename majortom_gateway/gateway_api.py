@@ -44,9 +44,6 @@ class GatewayAPI:
             userAndPass = b64encode(str.encode(f"{self.basic_auth}")).decode("ascii")
             self.headers['Authorization'] = f'Basic {userAndPass}'
 
-        logger.info("Starting Persistent Connection")
-        # asyncio.ensure_future(self.connect_with_retries())
-
     def __build_endpoints(self):
         if self.http:
             self.gateway_endpoint = "ws://" + self.host + "/gateway_api/v1.0"
