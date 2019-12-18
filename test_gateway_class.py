@@ -43,9 +43,7 @@ async def test_transmit(event_loop):
     payload = {"stuff": "things"}
     expected_payload = json.dumps(payload)
 
-    with mock.patch("websockets.connect", new=CoroutineMock()) as mocked_websocket, /
-    mock.patch("majortom_gateway.GatewayAPI._transmit", new=CoroutineMock()) as mock_transmit, /
-    mock.patch("majortom_gateway.GatewayAPI._message_receive_loop", new=CoroutineMock()) as mock_receive:
+    with mock.patch("websockets.connect", new=CoroutineMock()) as mocked_websocket,    mock.patch("majortom_gateway.GatewayAPI._transmit", new=CoroutineMock()) as mock_transmit,    mock.patch("majortom_gateway.GatewayAPI._message_receive_loop", new=CoroutineMock()) as mock_receive:
         # Set websocket return value so the API thinks it's connected
         mocked_websocket.return_value = True
         gateway = majortom_gateway.GatewayAPI(host=MT_URL, gateway_token=MT_TOKEN)
@@ -60,10 +58,7 @@ async def test_receive(event_loop):
     message = '{"type":"hello"}'
     expected_message = "Major Tom says hello: {}".format(json.loads(message))
 
-    with mock.patch("websockets.connect", new=CoroutineMock()) as mocked_websocket, /
-    mock.patch("majortom_gateway.GatewayAPI._transmit", new=CoroutineMock()) as mock_transmit, /
-    mock.patch("majortom_gateway.GatewayAPI._message_receive_loop", new=CoroutineMock()) as mock_receive, /
-    mock.patch("majortom_gateway.gateway_api.logger.info") as mock_logger:
+    with mock.patch("websockets.connect", new=CoroutineMock()) as mocked_websocket,    mock.patch("majortom_gateway.GatewayAPI._transmit", new=CoroutineMock()) as mock_transmit,    mock.patch("majortom_gateway.GatewayAPI._message_receive_loop", new=CoroutineMock()) as mock_receive,    mock.patch("majortom_gateway.gateway_api.logger.info") as mock_logger:
         # Set websocket return value so the API thinks it's connected
         mocked_websocket.return_value = True
         gateway = majortom_gateway.GatewayAPI(host=MT_URL, gateway_token=MT_TOKEN)
