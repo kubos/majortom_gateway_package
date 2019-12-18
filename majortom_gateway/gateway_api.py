@@ -76,6 +76,9 @@ class GatewayAPI:
         await self._message_receive_loop()
 
     async def _message_receive_loop(self):
+        """
+        Hook for testing
+        """
         async for message in self.websocket:
             await self.handle_message(message)
 
@@ -182,6 +185,9 @@ class GatewayAPI:
                     f"Major Tom Client local queue maxed out at {MAX_QUEUE_LENGTH} items. Packet is being dropped.")
 
     async def _transmit(self, json_payload):
+        """
+        Hook for testing
+        """
         await self.websocket.send(json_payload)
 
     async def transmit_metrics(self, metrics):
