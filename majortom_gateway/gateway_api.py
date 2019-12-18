@@ -73,13 +73,16 @@ class GatewayAPI:
         logger.info("Connected to Major Tom")
         await asyncio.sleep(1)
         await self.empty_queue()
+        await self._message_receive_loop()
+
+    async def _message_receive_loop(self):
         async for message in self.websocket:
             await self.handle_message(message)
 
     async def connect_with_retries(self):
         while True:
             try:
-                return await self.connect()
+                await self.connect()
             except (OSError, asyncio.streams.IncompleteReadError, websockets.ConnectionClosed) as e:
                 self.websocket = None
                 logger.warning("Connection error encountered, retrying in 5 seconds ({})".format(e))
@@ -158,7 +161,7 @@ class GatewayAPI:
         if self.websocket:
             logger.debug("To Major Tom: {}".format(payload))
             try:
-                await self.websocket.send(json.dumps(payload))
+                await self._transmit(json.dumps(payload))
             except Exception as e:
                 logger.error(
                     f"Websocket experienced an error when attempting to transmit: {type(e).__name__}: {e}")
@@ -177,6 +180,9 @@ class GatewayAPI:
             else:
                 logger.warn(
                     f"Major Tom Client local queue maxed out at {MAX_QUEUE_LENGTH} items. Packet is being dropped.")
+
+    async def _transmit(self, json_payload):
+        await self.websocket.send(json_payload)
 
     async def transmit_metrics(self, metrics):
         """
