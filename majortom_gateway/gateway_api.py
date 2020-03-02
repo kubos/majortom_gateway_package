@@ -360,7 +360,7 @@ class GatewayAPI:
                 headers=headers,
                 data=file_handle)
 
-        if upload_r.status_code != 200:
+        if upload_r.status_code not in (200, 204):
             logger.error(
                 f"Transaction Failed. Status code: {upload_r.status_code} \n Text Response: {upload_r.text}")
             raise(RuntimeError(f"File Upload Request Failed. Status code: {upload_r.status_code}"))
