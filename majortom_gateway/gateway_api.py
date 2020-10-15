@@ -20,7 +20,7 @@ MAX_QUEUE_LENGTH = 10000
 
 
 class GatewayAPI:
-    def __init__(self, host, gateway_token, ssl_verify=False, basic_auth=None, http=False, ssl_ca_bundle=None, command_callback=None, error_callback=None, rate_limit_callback=None, cancel_callback=None):
+    def __init__(self, host, gateway_token, ssl_verify=False, basic_auth=None, http=False, ssl_ca_bundle=None, command_callback=None, error_callback=None, rate_limit_callback=None, cancel_callback=None, transit_callback=None):
         self.host = host
         self.gateway_token = gateway_token
         self.ssl_verify = ssl_verify
@@ -35,6 +35,7 @@ class GatewayAPI:
         self.error_callback = error_callback
         self.rate_limit_callback = rate_limit_callback
         self.cancel_callback = cancel_callback
+        self.transit_callback = transit_callback
         self.websocket = None
         self.queued_payloads = []
         self.headers = {
@@ -134,6 +135,11 @@ class GatewayAPI:
                     "level": "warning",
                     "message": "No cancel callback registered. Unable to cancel command."
                 }]))
+        elif message_type == "transit":
+            if self.transit_callback is not None:
+                asyncio.ensure_future(self.transit_callback(message))
+            else:
+                logger.info("Major Tom expects a ground-station transit will occur: {}".format(message))
         elif message_type == "error":
             logger.error("Error from Major Tom: {}".format(message["error"]))
             if self.error_callback is not None:
