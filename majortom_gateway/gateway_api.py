@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import os
 import re
@@ -20,7 +21,7 @@ MAX_QUEUE_LENGTH = 10000
 
 
 class GatewayAPI:
-    def __init__(self, host, gateway_token, ssl_verify=False, basic_auth=None, http=False, ssl_ca_bundle=None, command_callback=None, error_callback=None, rate_limit_callback=None, cancel_callback=None, transit_callback=None):
+    def __init__(self, host, gateway_token, ssl_verify=False, basic_auth=None, http=False, ssl_ca_bundle=None, command_callback=None, error_callback=None, rate_limit_callback=None, cancel_callback=None, transit_callback=None, received_blob_callback=None):
         self.host = host
         self.gateway_token = gateway_token
         self.ssl_verify = ssl_verify
@@ -36,6 +37,7 @@ class GatewayAPI:
         self.rate_limit_callback = rate_limit_callback
         self.cancel_callback = cancel_callback
         self.transit_callback = transit_callback
+        self.received_blob_callback = received_blob_callback
         self.websocket = None
         self.queued_payloads = []
         self.headers = {
@@ -140,6 +142,14 @@ class GatewayAPI:
                 asyncio.ensure_future(self.transit_callback(message))
             else:
                 logger.info("Major Tom expects a ground-station transit will occur: {}".format(message))
+        elif message_type == "received_blob":
+            if self.received_blob_callback is not None:
+                encoded = message["blob"]
+                logger.debug(encoded)
+                decoded = base64.b64decode(encoded)
+                asyncio.ensure_future(self.received_blob_callback(decoded, self))
+            else:
+                logger.debug("Major Tom received a blob (binary satellite data block)")
         elif message_type == "error":
             logger.error("Error from Major Tom: {}".format(message["error"]))
             if self.error_callback is not None:
@@ -247,6 +257,12 @@ class GatewayAPI:
         for field in dict:
             update['command'][field] = dict[field]
         await self.transmit(update)
+
+    async def transmit_blob(self, blob: bytes):
+        await self.transmit({
+            "type": "transmit_blob",
+            "blob": base64.b64encode(blob).decode("cp437")
+        })
 
     async def fail_command(self, command_id: int, errors: list):
         await self.transmit_command_update(command_id=command_id, state="failed", dict={"errors": errors})
