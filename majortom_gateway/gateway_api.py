@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 MAX_QUEUE_LENGTH = 10000
 
+class MissingContextError(KeyError):
+    pass
+
 
 class GatewayAPI:
     def __init__(self, host, gateway_token, ssl_verify=False, basic_auth=None, http=False, ssl_ca_bundle=None, command_callback=None, error_callback=None, rate_limit_callback=None, cancel_callback=None, transit_callback=None, received_blob_callback=None):
@@ -147,7 +150,8 @@ class GatewayAPI:
                 encoded = message["blob"]
                 logger.debug(encoded)
                 decoded = base64.b64decode(encoded)
-                asyncio.ensure_future(self.received_blob_callback(decoded, self))
+                context = message["context"]
+                asyncio.ensure_future(self.received_blob_callback(decoded, context, self))
             else:
                 logger.debug("Major Tom received a blob (binary satellite data block)")
         elif message_type == "error":
@@ -258,11 +262,19 @@ class GatewayAPI:
             update['command'][field] = dict[field]
         await self.transmit(update)
 
-    async def transmit_blob(self, blob: bytes):
+    async def transmit_blob(self, blob: bytes, context: dict):
+        # Transmit bytes to a satellite via a groundstation network. The required context depends on the specific
+        # gsn.
+        await self._validate_context(context)
         await self.transmit({
             "type": "transmit_blob",
+            "context": context,
             "blob": base64.b64encode(blob).decode("cp437")
         })
+
+    async def _validate_context(self, context: dict):
+        # Stub for validating context. Raise MissingContextError if it fails
+        return True
 
     async def fail_command(self, command_id: int, errors: list):
         await self.transmit_command_update(command_id=command_id, state="failed", dict={"errors": errors})
