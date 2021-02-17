@@ -264,7 +264,7 @@ class GatewayAPI:
 
     async def transmit_blob(self, blob: bytes, context: dict):
         # Transmit bytes to a satellite via a groundstation network. The required context depends on the specific
-        # gsn. Version is always required.
+        # gsn.
         await self._validate_context(context)
         await self.transmit({
             "type": "transmit_blob",
@@ -273,8 +273,7 @@ class GatewayAPI:
         })
 
     async def _validate_context(self, context: dict):
-        if 'version' not in context:
-            raise MissingContextError("Context is missing version number.")
+        # Stub for validating context. Raise MissingContextError if it fails
         return True
 
     async def fail_command(self, command_id: int, errors: list):
