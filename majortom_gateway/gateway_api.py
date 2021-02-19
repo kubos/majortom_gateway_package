@@ -10,6 +10,12 @@ import traceback
 from base64 import b64encode
 import requests
 import hashlib
+try:
+    # python <= 3.7:
+    from asyncio.streams import IncompleteReadError
+except ImportError:
+    # python >= 3.8:
+    from asyncio.exceptions import IncompleteReadError
 
 import websockets
 
@@ -86,7 +92,7 @@ class GatewayAPI:
         while True:
             try:
                 return await self.connect()
-            except (OSError, asyncio.streams.IncompleteReadError, websockets.ConnectionClosed) as e:
+            except (OSError, IncompleteReadError, websockets.ConnectionClosed) as e:
                 self.websocket = None
                 logger.warning("Connection error encountered, retrying in 5 seconds ({})".format(e))
                 await asyncio.sleep(5)
