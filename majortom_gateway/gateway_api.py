@@ -129,8 +129,7 @@ class GatewayAPI:
                 """
                 asyncio.ensure_future(self.command_callback(command, self))
             else:
-                asyncio.ensure_future(self.fail_command(
-                    command.id, errors=["No command callback implemented"]))
+                asyncio.ensure_future(self.fail_command(command.id, errors=["No command callback implemented"]))
         elif message_type == "cancel":
             if self.cancel_callback is not None:
                 """
@@ -154,7 +153,6 @@ class GatewayAPI:
         elif message_type == "received_blob":
             if self.received_blob_callback is not None:
                 encoded = message["blob"]
-                logger.debug(encoded)
                 decoded = base64.b64decode(encoded)
                 context = message["context"]
                 asyncio.ensure_future(self.received_blob_callback(decoded, context, self))

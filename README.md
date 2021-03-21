@@ -15,6 +15,14 @@ as an example of how to use it!
 
 The `connect` or `connect_with_retries` functions must be called before any messages can be passed.
 
+## Development
+
 The Gateway API Package is currently in Beta,
 so please [submit an issue](https://github.com/kubos/majortom_gateway_package/issues/new)
 or [come talk to us](https://slack.kubos.com) if you have any comments/questions/feedback.
+
+### Testing 
+
+To run tests continouosly, execute `./dockertest.sh`.
+
+To examine the testing environment, execute `./dockertest.sh bash`.
