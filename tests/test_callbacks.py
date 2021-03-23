@@ -1,6 +1,11 @@
 import pytest
 import asyncio
-from unittest.mock import AsyncMock
+try:
+    # Python 3.8+
+    from unittest.mock import AsyncMock
+except ImportError:
+    # Python 3.6+
+    from mock import AsyncMock
 from unittest.mock import ANY
 from majortom_gateway import GatewayAPI
 from majortom_gateway import Command
@@ -20,7 +25,6 @@ def callback_mock():
     future.set_result(None)
     fn = AsyncMock(return_value=future) 
     return fn
-
 
 @pytest.mark.asyncio
 async def test_fails_when_no_command_callback(monkeypatch):
