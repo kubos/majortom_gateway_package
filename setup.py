@@ -1,6 +1,6 @@
 import setuptools
 
-VERSION = "0.0.9"
+VERSION = "0.0.10"
 
 with open("README.md", "r") as readme:
     readme_content = readme.read()
