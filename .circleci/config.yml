@@ -6,6 +6,7 @@ jobs:
   test-deploy:
     executor: python/default
     steps:
+      - checkout
       - python/dist
       - run:
           command: | 
@@ -22,6 +23,7 @@ jobs:
       name: python/default
       tag: <<parameters.tag>>
     steps: 
+      - checkout
       - python/install-packages:
           pkg-manager: pip
           pypi-cache: false
