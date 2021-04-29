@@ -16,8 +16,20 @@ jobs:
           # twine depends on environment variables being defined on the project
           name: Publish to Test-PyPi
           command: | 
-            twine upload -u __token__ -p ${TEST_PYPI_TOKEN} --skip-existing --repository testpypi dist/*.tar.gz dist/*.whl
-  
+            twine upload -u __token__ -p ${TEST_PYPI_TOKEN} --repository testpypi dist/*.tar.gz dist/*.whl
+          
+          name: Tag release
+          command: |
+            set -exo pipefail
+            sha=$(git rev-parse --short=4 HEAD)
+            timestamp=$(git show -s --format=%ct ${sha})
+            new_tag="staging-${timestamp}-${sha}"
+            git config --global user.email "ci@kubos.com"
+            git config --global user.name "CircleCI"
+            echo "Would tag with ${new_tag}"
+            # git tag -m "CI tagging release with ${new_tag} on $(date '+%m-%d-%y@%H:%M:%S')" ${new_tag}
+            # git push origin ${new_tag}
+
   # Test multiple python version by running multiple jobs
   orbTest:
     parameters:
