@@ -13,8 +13,10 @@ jobs:
           args: -r deploy_requirements.txt
       - python/dist
       - run:
+          # twine depends on environment variables being defined on the project
+          name: Publish to Test-PyPi
           command: | 
-            twine upload --repository testpypi dist/*
+            twine upload -u __token__ -p ${TEST_PYPI_TOKEN} --skip-existing --repository testpypi dist/*.tar.gz dist/*.whl
   
   # Test multiple python version by running multiple jobs
   orbTest:
@@ -59,8 +61,6 @@ workflows:
               only: test-release
 
       - test-deploy:
-          requires:
-            - toxTest
           <<: *release-filter
   
   tests:
