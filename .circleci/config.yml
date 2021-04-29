@@ -21,9 +21,7 @@ jobs:
           name: Tag release
           command: |
             set -exo pipefail
-            sha=$(git rev-parse --short=4 HEAD)
-            timestamp=$(git show -s --format=%ct ${sha})
-            new_tag="staging-${timestamp}-${sha}"
+            new_tag="$(cat VERSION)"
             git config --global user.email "ci@kubos.com"
             git config --global user.name "CircleCI"
             echo "Would tag with ${new_tag}"
