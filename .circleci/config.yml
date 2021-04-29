@@ -23,10 +23,12 @@ jobs:
       tag: <<parameters.tag>>
     steps: 
       - python/install-packages:
-          args: pytest
+          pkg-manager: pip
+          pypi-cache: false
+          args: -r test_requirements.txt
       - run:
           command: |
-            pipenv run pytest --version
+            pytest
           name: Test it
   
   # Test multiple python version by running a single job with tox
