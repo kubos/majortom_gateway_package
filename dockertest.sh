@@ -1,6 +1,7 @@
-#!/bin/bash
+#!/bin/bash -e
 
 docker build -t gateway_api_test_container -f Dockerfile.test .
-docker run -it \
-    -v $(pwd):/app \
-    gateway_api_test_container $1
+docker run \
+    --tty \
+    --rm \
+    gateway_api_test_container
