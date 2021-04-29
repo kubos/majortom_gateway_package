@@ -97,18 +97,18 @@ workflows:
             tag: ["3.6", "3.7", "3.8", "3.9"]   
 
     - test-deploy:
-      filters:
-        branches:
-          only: 
-            - test-release
-            - release
-      requires:
-        - toxTest
-        - orbTest
+        filters:
+          branches:
+            only: 
+              - test-release
+              - release
+        requires:
+          - toxTest
+          - orbTest
     
     - deploy:
-      filters:
-        branches:
-          only: release
-      requires:
-        - test-deploy
+        filters:
+          branches:
+            only: release
+        requires:
+          - test-deploy
