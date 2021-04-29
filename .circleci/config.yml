@@ -22,12 +22,36 @@ jobs:
           name: Tag release
           command: |
             set -exo pipefail
-            new_tag="$(cat VERSION)"
+            new_tag="test-release-v$(cat VERSION)"
             git config --global user.email "ci@kubos.com"
             git config --global user.name "CircleCI"
-            echo "Would tag with ${new_tag}"
-            # git tag -m "CI tagging release with ${new_tag} on $(date '+%m-%d-%y@%H:%M:%S')" ${new_tag}
-            # git push origin ${new_tag}
+            git tag -m "CI tagging test-release with ${new_tag} on $(date '+%m-%d-%y@%H:%M:%S')" ${new_tag}
+            git push origin ${new_tag}
+
+  deploy:
+    executor: python/default
+    steps:
+      - checkout
+      - python/install-packages:
+          pkg-manager: pip
+          pypi-cache: false
+          args: -r deploy_requirements.txt
+      - python/dist
+      - run:
+          # twine depends on environment variables being defined on the project
+          name: Publish to PyPi
+          command: | 
+            twine upload -u __token__ -p ${PYPI_TOKEN} dist/*.tar.gz dist/*.whl
+
+      - run:    
+          name: Tag release
+          command: |
+            set -exo pipefail
+            new_tag="v$(cat VERSION)"
+            git config --global user.email "ci@kubos.com"
+            git config --global user.name "CircleCI"
+            git tag -m "CI tagging release with ${new_tag} on $(date '+%m-%d-%y@%H:%M:%S')" ${new_tag}
+            git push origin ${new_tag} 
 
   # Test multiple python version by running multiple jobs
   orbTest:
@@ -66,14 +90,47 @@ workflows:
   version: 2
   test-deploy:
     jobs:
-      - toxTest: &release-filter
+      - toxTest: &test-release-filter
           filters:
             branches:
               only: test-release
 
+      - orbTest:
+          <<: *test-release-filter
+          matrix:
+            parameters:
+              tag: ["3.6", "3.7", "3.8", "3.9"]
+
+      - test-deploy:
+          <<: *test-release-filter
+          requires:
+            - toxTest
+            - orbTest
+  
+  deploy:
+    jobs:
+      - toxTest: &release-filter
+          filters:
+            branches:
+              only: release
+
+      - orbTest:
+          <<: *release-filter
+          matrix:
+            parameters:
+              tag: ["3.6", "3.7", "3.8", "3.9"]
+
       - test-deploy:
           <<: *release-filter
-  
+          requires:
+            - toxTest
+            - orbTest
+
+      - deploy:
+          <<: *release-filter
+          requires:
+            - test-deploy
+
   tests:
     jobs:
       - toxTest
