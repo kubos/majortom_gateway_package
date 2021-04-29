@@ -11,9 +11,16 @@ jobs:
           command: | 
             twine upload --repository testpypi dist/*
   
+  # Test multiple python version by running multiple jobs
   orbTest:
-    executor: python/default
-      # tag: << parameters.tag >>
+    parameters:
+      tag:
+        description: "python version"
+        default: "3.8"
+        type: string
+    executor:
+      name: python/default
+      tag: <<parameters.tag>>
     steps: 
       - python/install-packages:
           args: pytest
@@ -22,6 +29,7 @@ jobs:
             pipenv run pytest --version
           name: Test it
   
+  # Test multiple python version by running a single job with tox
   toxTest:
     working_directory: ~/repo
     docker:
@@ -40,17 +48,16 @@ workflows:
       - toxTest:
           filters:
             branches:
-              only: release
+              only: test-release
 
       - test-deploy:
           requires:
             - toxTest
           filters:
             branches:
-              only: release
+              only: test-release
   tests:
     jobs:
-      # - orbTest
       - toxTest
       - orbTest:
           matrix:
