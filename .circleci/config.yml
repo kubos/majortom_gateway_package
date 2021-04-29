@@ -3,13 +3,17 @@ orbs:
   python: circleci/python@1.4.0
 
 jobs: 
-  deploy:
+  test-deploy:
     executor: python/default
     steps:
       - python/dist
-
+      - run:
+          command: | 
+            twine upload --repository testpypi dist/*
+  
   orbTest:
     executor: python/default
+      # tag: << parameters.tag >>
     steps: 
       - python/install-packages:
           args: pytest
@@ -28,24 +32,29 @@ jobs:
           version: 19.03.13
       - run: ./dockertest.sh
 
+
 workflows:
   version: 2
-  deploy:
+  test-deploy:
     jobs:
       - toxTest:
           filters:
             branches:
               only: release
 
-      - deploy:
+      - test-deploy:
           requires:
-            - build
+            - toxTest
           filters:
             branches:
               only: release
   tests:
     jobs:
-      - orbTest
+      # - orbTest
       - toxTest
+      - orbTest:
+          matrix:
+            parameters:
+              tag: ["3.6", "3.7", "3.8", "3.9"]
 
   
