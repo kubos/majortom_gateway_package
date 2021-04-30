@@ -6,6 +6,11 @@ jobs:
   test-deploy:
     executor: python/default
     steps:
+      - add_ssh_keys:
+          # This is the writable deploy key in Github called "Write-Access Key for Publishing and Git Tagging"
+          # The keys are stored in LastPass under CircleCI
+          fingerprints:
+            - "12:3e:11:34:9e:3f:b3:6e:9c:64:f6:5e:1f:d9:80:49"
       - checkout
       - python/install-packages:
           pkg-manager: pip
@@ -31,6 +36,11 @@ jobs:
   deploy:
     executor: python/default
     steps:
+      - add_ssh_keys:
+          # This is the writable deploy key in Github called "Write-Access Key for Publishing and Git Tagging"
+          # The keys are stored in LastPass under CircleCI
+          fingerprints:
+            - "12:3e:11:34:9e:3f:b3:6e:9c:64:f6:5e:1f:d9:80:49"
       - checkout
       - python/install-packages:
           pkg-manager: pip
