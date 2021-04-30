@@ -1,6 +1,9 @@
 import setuptools
+import os
 
-VERSION = "0.0.10"
+here = os.path.abspath(os.path.dirname(__file__))
+with open(os.path.join(here, 'VERSION')) as version_file:
+    version = version_file.read().strip()
 
 with open("README.md", "r") as readme:
     readme_content = readme.read()
@@ -8,7 +11,7 @@ with open("README.md", "r") as readme:
 
 setuptools.setup(
     name="majortom_gateway",
-    version=VERSION,
+    version=version,
     author="Kubos",
     author_email="open-source@kubos.com",
     description="A package for interacting with Major Tom's Gateway API.",
