@@ -1,9 +1,7 @@
-FROM python:3.6.1
+FROM sawkita/tox:all
 
 WORKDIR /app
 
-COPY requirements.txt /app
-RUN pip install -r requirements.txt
-COPY . /app
+COPY . .
 
-CMD ["ptw","--","-v","--cache-clear"]
+CMD ["tox"]
