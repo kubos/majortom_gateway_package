@@ -11,6 +11,7 @@ from majortom_gateway import GatewayAPI
 from majortom_gateway import Command
 import json
 import base64
+import logging
 
 class TypeMatcher:
     def __init__(self, expected_type):
@@ -44,6 +45,7 @@ async def test_fails_when_no_command_callback(monkeypatch):
         }
     })
     res = await gw.handle_message(message)
+    await asyncio.sleep(1)
     
     assert(None == res)
     assert mock_fail_command.called
@@ -62,9 +64,40 @@ async def test_calls_command_callback(callback_mock):
     })
 
     res = await gw.handle_message(message)
+    logging.debug("RES: {}".format(res))
+    await asyncio.sleep(1)
     
     # Make sure that the command callback was called with the command and Gateway
     callback_mock.assert_called_once_with(TypeMatcher(Command), TypeMatcher(GatewayAPI))
+
+@pytest.mark.asyncio
+async def test_calls_command_callback_v2():
+    result = { "worked": False }
+
+    async def cb(*args, **kwargs):
+        result["worked"] = True
+        return 42
+
+    gw = GatewayAPI("host", "gateway_token", command_callback=cb)
+    message =  json.dumps({
+        "type": "command",
+        "command": {
+            "id": 4,
+            "type": "get_battery" ,
+            "system": "ISS",
+            "fields": []
+        }
+    })
+
+    res = await gw.handle_message(message)
+    await asyncio.sleep(1)
+
+    logging.debug("RES: {}".format(res))
+    assert result["worked"]
+    
+    # Make sure that the command callback was called with the command and Gateway
+    # callback_mock.assert_called_once_with(TypeMatcher(Command), TypeMatcher(GatewayAPI))
+
 
 @pytest.mark.asyncio
 async def test_calls_cancel_callback(callback_mock):
@@ -78,6 +111,7 @@ async def test_calls_cancel_callback(callback_mock):
     })
 
     res = await gw.handle_message(message)
+    await asyncio.sleep(1)
     
     # The cancel callback is called with the command id and the gateway
     callback_mock.assert_called_once_with(20, TypeMatcher(GatewayAPI))
@@ -95,6 +129,7 @@ async def test_calls_rate_limit_callback(callback_mock):
     }
 
     res = await gw.handle_message(json.dumps(message))
+    await asyncio.sleep(1)
     
     # The rate limit callback is given the raw message
     callback_mock.assert_called_once_with(message)
@@ -110,6 +145,7 @@ async def test_calls_error_callback(callback_mock):
     }
 
     res = await gw.handle_message(json.dumps(message))
+    await asyncio.sleep(1)
     
     # The error callback is given the raw message
     callback_mock.assert_called_once_with(message)
@@ -124,6 +160,7 @@ async def test_calls_transit_callback(callback_mock):
     }
 
     res = await gw.handle_message(json.dumps(message))
+    await asyncio.sleep(1)
     
     # The transit callback is given the raw message
     callback_mock.assert_called_once_with(message)
@@ -145,6 +182,7 @@ async def test_calls_received_blob_callback(callback_mock):
     })
 
     res = await gw.handle_message(message)
+    await asyncio.sleep(1)
     
     # The received_blob callback is given the decoded blob, the context, and the gateway
     callback_mock.assert_called_once_with(blob, ANY, TypeMatcher(GatewayAPI))

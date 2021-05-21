@@ -6,10 +6,11 @@ import re
 import ssl
 import logging
 import time
-import traceback
+import inspect
 from base64 import b64encode
 import requests
 import hashlib
+from asgiref.sync import sync_to_async
 try:
     # python <= 3.7:
     from asyncio.streams import IncompleteReadError
@@ -116,10 +117,23 @@ class GatewayAPI:
                 logger.error("Unhandled {} in `connect_with_retries`".format(e.__class__.__name__))
                 raise(e)
 
+    async def callCallback(self, cb, *args, **kwargs):
+        if callable(cb):
+            if asyncio.iscoroutinefunction(cb) or inspect.isawaitable(cb) :
+                logger.debug("AWAITABLE OR COROUTINE")
+                res = asyncio.ensure_future( cb(*args, **kwargs) )
+            else:
+                logger.debug("SYNCHRONOUS")
+                res = asyncio.ensure_future( sync_to_async(cb)(*args, **kwargs) )
+            return res
+        else:
+            raise ValueError('cb is not callable: {}'.format(dir(cb)))
+
     async def handle_message(self, json_data):
         message = json.loads(json_data)
         message_type = message["type"]
         logger.debug("From Major Tom: {}".format(message))
+        
         if message_type == "command":
             command = Command(message["command"])
             if self.command_callback is not None:
@@ -127,7 +141,7 @@ class GatewayAPI:
                 TODO: Track the task and ensure it completes without errors
                 reference: https://medium.com/@yeraydiazdiaz/asyncio-coroutine-patterns-errors-and-cancellation-3bb422e961ff
                 """
-                asyncio.ensure_future(self.command_callback(command, self))
+                asyncio.ensure_future(self.callCallback(self.command_callback, command, self))
             else:
                 asyncio.ensure_future(self.fail_command(command.id, errors=["No command callback implemented"]))
         elif message_type == "cancel":
