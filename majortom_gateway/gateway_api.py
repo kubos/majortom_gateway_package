@@ -118,14 +118,18 @@ class GatewayAPI:
                 raise(e)
 
     async def callCallback(self, cb, *args, **kwargs):
+        ''' Calls a callback, handling both when it is an async coroutine or 
+        a regular sync function. 
+        Returns: An awaitable task
+        '''
         if callable(cb):
             if asyncio.iscoroutinefunction(cb) or inspect.isawaitable(cb) :
-                logger.debug("AWAITABLE OR COROUTINE")
-                res = asyncio.ensure_future( cb(*args, **kwargs) )
+                task = asyncio.ensure_future( cb(*args, **kwargs) )
             else:
-                logger.debug("SYNCHRONOUS")
-                res = asyncio.ensure_future( sync_to_async(cb)(*args, **kwargs) )
-            return res
+                # sync_to_async with thread_sensitive=False runs the sync function in its own thread
+                # see https://docs.djangoproject.com/en/3.2/topics/async/#asgiref.sync.sync_to_async
+                task = asyncio.ensure_future( sync_to_async(cb, thread_sensitive=False)(*args, **kwargs))
+            return task
         else:
             raise ValueError('cb is not callable: {}'.format(dir(cb)))
 
@@ -150,7 +154,7 @@ class GatewayAPI:
                 TODO: Track the task and ensure it completes without errors
                 reference: https://medium.com/@yeraydiazdiaz/asyncio-coroutine-patterns-errors-and-cancellation-3bb422e961ff
                 """
-                asyncio.ensure_future(self.cancel_callback(message["command"]["id"], self))
+                asyncio.ensure_future(self.callCallback(self.cancel_callback, message["command"]["id"], self))
             else:
                 asyncio.ensure_future(self.transmit_events(events=[{
                     "system": None,
@@ -161,7 +165,7 @@ class GatewayAPI:
                 }]))
         elif message_type == "transit":
             if self.transit_callback is not None:
-                asyncio.ensure_future(self.transit_callback(message))
+                asyncio.ensure_future(self.callCallback(self.transit_callback, message))
             else:
                 logger.info("Major Tom expects a ground-station transit will occur: {}".format(message))
         elif message_type == "received_blob":
@@ -169,17 +173,17 @@ class GatewayAPI:
                 encoded = message["blob"]
                 decoded = base64.b64decode(encoded)
                 context = message["context"]
-                asyncio.ensure_future(self.received_blob_callback(decoded, context, self))
+                asyncio.ensure_future(self.callCallback(self.received_blob_callback, decoded, context, self))
             else:
                 logger.debug("Major Tom received a blob (binary satellite data block)")
         elif message_type == "error":
             logger.error("Error from Major Tom: {}".format(message["error"]))
             if self.error_callback is not None:
-                asyncio.ensure_future(self.error_callback(message))
+                asyncio.ensure_future(self.callCallback(self.error_callback, message))
         elif message_type == "rate_limit":
             logger.error("Rate limit from Major Tom: {}".format(message["rate_limit"]))
             if self.rate_limit_callback is not None:
-                asyncio.ensure_future(self.rate_limit_callback(message))
+                asyncio.ensure_future(self.callCallback(self.rate_limit_callback, message))
         elif message_type == "hello":
             logger.info("Major Tom says hello: {}".format(message))
         else:
