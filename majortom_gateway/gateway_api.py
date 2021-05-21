@@ -1,4 +1,5 @@
 import asyncio
+from asyncio.tasks import ensure_future
 import base64
 import json
 import os
@@ -87,7 +88,8 @@ class GatewayAPI:
         await asyncio.sleep(1)
         await self.empty_queue()
         async for message in self.websocket:
-            await self.handle_message(message)
+            asyncio.ensure_future(self.handle_message(message))
+            await asyncio.sleep(0)  # Allows execution to jump to wherever it may be needed, such as future or prev message
 
     async def connect_with_retries(self):
         while True:
@@ -129,6 +131,7 @@ class GatewayAPI:
                 # sync_to_async with thread_sensitive=False runs the sync function in its own thread
                 # see https://docs.djangoproject.com/en/3.2/topics/async/#asgiref.sync.sync_to_async
                 task = asyncio.ensure_future( sync_to_async(cb, thread_sensitive=False)(*args, **kwargs))
+            await asyncio.sleep(0)
             return task
         else:
             raise ValueError('cb is not callable: {}'.format(dir(cb)))
