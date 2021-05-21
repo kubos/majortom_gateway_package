@@ -39,35 +39,6 @@ def callback_mock():
     return fn
 
 @pytest.mark.asyncio
-async def test_sync_callbacks_can_be_run_async():
-    def cb(command, *args, **kwargs):
-        time.sleep(1)
-        logging.debug(f"Finished command {command.id}")
-
-    gw = GatewayAPI("host", "gateway_token", command_callback=cb)
-    async def ticker():
-        for i in range(10):
-            yield json.dumps({
-                "type": "command",
-                "command": {
-                    "id": i,
-                    "type": "get_batt",
-                    "system": "ISS",
-                    "fields": []
-                }
-            })
-            await asyncio.sleep(0.1)
-    
-    logging.info("start await")
-    async for message in ticker():
-        await gw.handle_message(message)
-    logging.info("end await")
-    
-    # The sync commands should finish before this is done
-    # If they don't, a bunch of errors will (hopefully) be generated.
-    await asyncio.sleep(3)  
-
-@pytest.mark.asyncio
 async def test_fails_when_no_command_callback(monkeypatch):
     gw = GatewayAPI("host", "gateway_token")
 
@@ -104,21 +75,6 @@ async def test_calls_command_callback_v2():
     await asyncio.sleep(1)
 
     assert result["worked"]
-
-@pytest.mark.asyncio
-async def test_calls_SYNC_command_callback():
-    result = { "worked": False }
-
-    def cb(*args, **kwargs):
-        result["worked"] = True
-
-    gw = GatewayAPI("host", "gateway_token", command_callback=cb)
-
-    await gw.handle_message(MESSAGE)
-    await asyncio.sleep(1)
-
-    assert result["worked"]
-
 
 @pytest.mark.asyncio
 async def test_calls_cancel_callback(callback_mock):
