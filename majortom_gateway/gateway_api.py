@@ -131,10 +131,17 @@ class GatewayAPI:
                 # sync_to_async with thread_sensitive=False runs the sync function in its own thread
                 # see https://docs.djangoproject.com/en/3.2/topics/async/#asgiref.sync.sync_to_async
                 task = asyncio.ensure_future( sync_to_async(cb, thread_sensitive=False)(*args, **kwargs))
-            await asyncio.sleep(0)
-            return task
+            task.add_done_callback(self._handle_task_result)
         else:
             raise ValueError('cb is not callable: {}'.format(dir(cb)))
+
+    def _handle_task_result(self, task: asyncio.Task) -> None:
+        try:
+            task.result()
+        except asyncio.CancelledError:
+            pass  # Task cancellation should not be logged as an error.
+        except Exception:  # pylint: disable=broad-except
+            logger.exception('Exception raised by task = %r', task)
 
     async def handle_message(self, json_data):
         message = json.loads(json_data)

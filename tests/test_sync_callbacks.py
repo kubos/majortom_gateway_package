@@ -69,6 +69,19 @@ async def test_calls_SYNC_command_callback():
 
 
 @pytest.mark.asyncio
+async def test_error_propagation_on_SYNC_command_callback(caplog):
+    def cb(*args, **kwargs):
+        # You should NOT see 'Task exception was never retrieved'
+        raise RuntimeError("This exception message should be visible.")
+
+    gw = GatewayAPI("host", "gateway_token", command_callback=cb)
+
+    await gw.handle_message(MESSAGE)
+    await asyncio.sleep(1)  # Give time for the callback to run
+    
+    assert 'This exception message should be visible' in caplog.text
+
+@pytest.mark.asyncio
 async def test_calls_SYNC_cancel_callback():
     result = { "worked": False }
 
