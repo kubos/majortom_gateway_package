@@ -6,10 +6,11 @@ import re
 import ssl
 import logging
 import time
-import traceback
+import inspect
 from base64 import b64encode
 import requests
 import hashlib
+from asgiref.sync import sync_to_async
 try:
     # python <= 3.7:
     from asyncio.streams import IncompleteReadError
@@ -86,7 +87,8 @@ class GatewayAPI:
         await asyncio.sleep(1)
         await self.empty_queue()
         async for message in self.websocket:
-            await self.handle_message(message)
+            asyncio.ensure_future(self.handle_message(message))
+            await asyncio.sleep(0)  # Allows execution to jump to wherever it may be needed, such as future or prev message
 
     async def connect_with_retries(self):
         while True:
@@ -116,10 +118,35 @@ class GatewayAPI:
                 logger.error("Unhandled {} in `connect_with_retries`".format(e.__class__.__name__))
                 raise(e)
 
+    async def callCallback(self, cb, *args, **kwargs):
+        ''' Calls a callback, handling both when it is an async coroutine or 
+        a regular sync function. 
+        Returns: An awaitable task
+        '''
+        if callable(cb):
+            if asyncio.iscoroutinefunction(cb) or inspect.isawaitable(cb) :
+                task = asyncio.ensure_future( cb(*args, **kwargs) )
+            else:
+                # sync_to_async with thread_sensitive=False runs the sync function in its own thread
+                # see https://docs.djangoproject.com/en/3.2/topics/async/#asgiref.sync.sync_to_async
+                task = asyncio.ensure_future( sync_to_async(cb, thread_sensitive=False)(*args, **kwargs))
+            task.add_done_callback(self._handle_task_result)
+        else:
+            raise ValueError('cb is not callable: {}'.format(dir(cb)))
+
+    def _handle_task_result(self, task: asyncio.Task) -> None:
+        try:
+            task.result()
+        except asyncio.CancelledError:
+            pass  # Task cancellation should not be logged as an error.
+        except Exception:  # pylint: disable=broad-except
+            logger.exception('Exception raised by task = %r', task)
+
     async def handle_message(self, json_data):
         message = json.loads(json_data)
         message_type = message["type"]
         logger.debug("From Major Tom: {}".format(message))
+        
         if message_type == "command":
             command = Command(message["command"])
             if self.command_callback is not None:
@@ -127,7 +154,7 @@ class GatewayAPI:
                 TODO: Track the task and ensure it completes without errors
                 reference: https://medium.com/@yeraydiazdiaz/asyncio-coroutine-patterns-errors-and-cancellation-3bb422e961ff
                 """
-                asyncio.ensure_future(self.command_callback(command, self))
+                asyncio.ensure_future(self.callCallback(self.command_callback, command, self))
             else:
                 asyncio.ensure_future(self.fail_command(command.id, errors=["No command callback implemented"]))
         elif message_type == "cancel":
@@ -136,7 +163,7 @@ class GatewayAPI:
                 TODO: Track the task and ensure it completes without errors
                 reference: https://medium.com/@yeraydiazdiaz/asyncio-coroutine-patterns-errors-and-cancellation-3bb422e961ff
                 """
-                asyncio.ensure_future(self.cancel_callback(message["command"]["id"], self))
+                asyncio.ensure_future(self.callCallback(self.cancel_callback, message["command"]["id"], self))
             else:
                 asyncio.ensure_future(self.transmit_events(events=[{
                     "system": None,
@@ -147,7 +174,7 @@ class GatewayAPI:
                 }]))
         elif message_type == "transit":
             if self.transit_callback is not None:
-                asyncio.ensure_future(self.transit_callback(message))
+                asyncio.ensure_future(self.callCallback(self.transit_callback, message))
             else:
                 logger.info("Major Tom expects a ground-station transit will occur: {}".format(message))
         elif message_type == "received_blob":
@@ -155,17 +182,17 @@ class GatewayAPI:
                 encoded = message["blob"]
                 decoded = base64.b64decode(encoded)
                 context = message["context"]
-                asyncio.ensure_future(self.received_blob_callback(decoded, context, self))
+                asyncio.ensure_future(self.callCallback(self.received_blob_callback, decoded, context, self))
             else:
                 logger.debug("Major Tom received a blob (binary satellite data block)")
         elif message_type == "error":
             logger.error("Error from Major Tom: {}".format(message["error"]))
             if self.error_callback is not None:
-                asyncio.ensure_future(self.error_callback(message))
+                asyncio.ensure_future(self.callCallback(self.error_callback, message))
         elif message_type == "rate_limit":
             logger.error("Rate limit from Major Tom: {}".format(message["rate_limit"]))
             if self.rate_limit_callback is not None:
-                asyncio.ensure_future(self.rate_limit_callback(message))
+                asyncio.ensure_future(self.callCallback(self.rate_limit_callback, message))
         elif message_type == "hello":
             logger.info("Major Tom says hello: {}".format(message))
         else:
@@ -267,19 +294,13 @@ class GatewayAPI:
         await self.transmit(update)
 
     async def transmit_blob(self, blob: bytes, context: dict):
-        # Transmit bytes to a satellite via a groundstation network. The required context depends on the specific
-        # gsn. Version is always required.
-        await self._validate_context(context)
+        # Transmit bytes to a satellite via a groundstation network. The
+        # required context depends on the specific gsn. 
         await self.transmit({
             "type": "transmit_blob",
             "context": context,
             "blob": base64.b64encode(blob).decode("cp437")
         })
-
-    async def _validate_context(self, context: dict):
-        if 'version' not in context:
-            raise MissingContextError("Context is missing version number.")
-        return True
 
     async def fail_command(self, command_id: int, errors: list):
         await self.transmit_command_update(command_id=command_id, state="failed", dict={"errors": errors})

@@ -11,6 +11,8 @@ from majortom_gateway import GatewayAPI
 from majortom_gateway import Command
 import json
 import base64
+import logging
+import time
 
 class TypeMatcher:
     def __init__(self, expected_type):
@@ -19,10 +21,20 @@ class TypeMatcher:
     def __eq__(self, other):
         return isinstance(other, self.expected_type)
 
+MESSAGE = json.dumps({
+        "type": "command",
+        "command": {
+            "id": 4,
+            "type": "get_battery" ,
+            "system": "ISS",
+            "fields": []
+        }
+    })
+
 @pytest.fixture
 def callback_mock():
     future = asyncio.Future()
-    future.set_result(None)
+    future.set_result(42)
     fn = AsyncMock(return_value=future) 
     return fn
 
@@ -34,37 +46,35 @@ async def test_fails_when_no_command_callback(monkeypatch):
     mock_fail_command = AsyncMock()
     monkeypatch.setattr(gw, "fail_command", mock_fail_command)
 
-    message =  json.dumps({
-        "type": "command",
-        "command": {
-            "id": 4,
-            "type": "get_battery" ,
-            "system": "ISS",
-            "fields": []
-        }
-    })
-    res = await gw.handle_message(message)
+    await gw.handle_message(MESSAGE)
+    await asyncio.sleep(1)
     
-    assert(None == res)
     assert mock_fail_command.called
 
 @pytest.mark.asyncio
 async def test_calls_command_callback(callback_mock):
     gw = GatewayAPI("host", "gateway_token", command_callback=callback_mock)
-    message =  json.dumps({
-        "type": "command",
-        "command": {
-            "id": 4,
-            "type": "get_battery" ,
-            "system": "ISS",
-            "fields": []
-        }
-    })
 
-    res = await gw.handle_message(message)
+    await gw.handle_message(MESSAGE)
+    await asyncio.sleep(1)
     
     # Make sure that the command callback was called with the command and Gateway
     callback_mock.assert_called_once_with(TypeMatcher(Command), TypeMatcher(GatewayAPI))
+
+@pytest.mark.asyncio
+async def test_calls_command_callback_v2():
+    ''' This test uses an inline async coroutine instead of a mock. '''
+    result = { "worked": False }
+
+    async def cb(*args, **kwargs):
+        result["worked"] = True
+
+    gw = GatewayAPI("host", "gateway_token", command_callback=cb)
+
+    await gw.handle_message(MESSAGE)
+    await asyncio.sleep(1)
+
+    assert result["worked"]
 
 @pytest.mark.asyncio
 async def test_calls_cancel_callback(callback_mock):
@@ -77,7 +87,8 @@ async def test_calls_cancel_callback(callback_mock):
         }
     })
 
-    res = await gw.handle_message(message)
+    await gw.handle_message(message)
+    await asyncio.sleep(1)
     
     # The cancel callback is called with the command id and the gateway
     callback_mock.assert_called_once_with(20, TypeMatcher(GatewayAPI))
@@ -94,7 +105,8 @@ async def test_calls_rate_limit_callback(callback_mock):
         }
     }
 
-    res = await gw.handle_message(json.dumps(message))
+    await gw.handle_message(json.dumps(message))
+    await asyncio.sleep(1)
     
     # The rate limit callback is given the raw message
     callback_mock.assert_called_once_with(message)
@@ -109,7 +121,8 @@ async def test_calls_error_callback(callback_mock):
         "disconnect": True
     }
 
-    res = await gw.handle_message(json.dumps(message))
+    await gw.handle_message(json.dumps(message))
+    await asyncio.sleep(1)
     
     # The error callback is given the raw message
     callback_mock.assert_called_once_with(message)
@@ -123,7 +136,8 @@ async def test_calls_transit_callback(callback_mock):
         "type": "transit",
     }
 
-    res = await gw.handle_message(json.dumps(message))
+    await gw.handle_message(json.dumps(message))
+    await asyncio.sleep(1)
     
     # The transit callback is given the raw message
     callback_mock.assert_called_once_with(message)
@@ -144,7 +158,8 @@ async def test_calls_received_blob_callback(callback_mock):
         }
     })
 
-    res = await gw.handle_message(message)
+    await gw.handle_message(message)
+    await asyncio.sleep(1)
     
     # The received_blob callback is given the decoded blob, the context, and the gateway
     callback_mock.assert_called_once_with(blob, ANY, TypeMatcher(GatewayAPI))

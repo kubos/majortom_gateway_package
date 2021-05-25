@@ -32,6 +32,7 @@ setuptools.setup(
     keywords='majortom major_tom gateway kubos major tom satellite',
     install_requires=[
         "websockets",
-        "requests"
+        "requests",
+        "asgiref"
     ]
 )
