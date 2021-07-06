@@ -79,9 +79,14 @@ class GatewayAPI:
                 ssl_context.verify_mode = ssl.CERT_NONE
 
         logger.info("Connecting to Major Tom")
-        self.websocket = await websockets.connect(self.gateway_endpoint,
-                                                  extra_headers=self.headers,
-                                                  ssl=ssl_context)
+        while True:
+            self.websocket = await websockets.connect(self.gateway_endpoint,
+                                                      extra_headers=self.headers,
+                                                      ssl=ssl_context)
+            if self.websocket:
+                break
+            logger.warn("  Connection attempt didn't produce a websocket object")
+            await asyncio.sleep(0.1)
 
         logger.info("Connected to Major Tom")
         await asyncio.sleep(1)
