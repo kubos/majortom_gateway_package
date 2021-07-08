@@ -85,7 +85,7 @@ class GatewayAPI:
                                                       ssl=ssl_context)
             if self.websocket:
                 break
-            logger.warn("  Connection attempt didn't produce a websocket object")
+            logger.warning("  Connection attempt didn't produce a websocket object")
             await asyncio.sleep(0.1)
 
         logger.info("Connected to Major Tom")

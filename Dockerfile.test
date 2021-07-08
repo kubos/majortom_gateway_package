@@ -4,4 +4,4 @@ WORKDIR /app
 
 COPY . .
 
-CMD ["tox"]
+ENTRYPOINT [ "tox" ] 
