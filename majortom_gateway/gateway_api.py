@@ -49,6 +49,7 @@ class GatewayAPI:
         self.transit_callback = transit_callback
         self.received_blob_callback = received_blob_callback
         self.websocket = None
+        self.mission = None
         self.queued_payloads = []
         self.headers = {
             "X-Gateway-Token": self.gateway_token
@@ -194,6 +195,8 @@ class GatewayAPI:
             if self.rate_limit_callback is not None:
                 asyncio.ensure_future(self.callCallback(self.rate_limit_callback, message))
         elif message_type == "hello":
+            hello_message = json.loads(message)
+            self.mission = hello_message['hello']['mission']
             logger.info("Major Tom says hello: {}".format(message))
         else:
             logger.warning("Unknown message type {} received from Major Tom: {}".format(
