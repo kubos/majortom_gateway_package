@@ -77,6 +77,21 @@ async def test_calls_command_callback_v2():
     assert result["worked"]
 
 @pytest.mark.asyncio
+async def test_initializes_mission_name_from_hello_message(callback_mock):
+    gw = GatewayAPI("host", "gateway_token")
+    message =  json.dumps({
+        "type": "hello",
+        "hello": {
+            "mission": "MISSION NAME"
+        },
+    })
+
+    await gw.handle_message(message)
+    await asyncio.sleep(1)
+
+    assert gw.mission_name == "MISSION NAME"
+
+@pytest.mark.asyncio
 async def test_calls_cancel_callback(callback_mock):
     gw = GatewayAPI("host", "gateway_token", cancel_callback=callback_mock)
     message =  json.dumps({
