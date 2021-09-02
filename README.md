@@ -23,4 +23,9 @@ or [come talk to us](https://slack.kubos.com) if you have any comments/questions
 
 ### Testing 
 
-To run all tests, execute `./dockertest.sh` or push a branch and let the CI system do it.
+To run all tests, execute `./dockertest.sh`.
+
+To run a specific test in a specific file in a specific environment:
+```
+./dockertest.sh -e py38 -- /app/tests/test_gateway_class.py::test_logging_output
+```

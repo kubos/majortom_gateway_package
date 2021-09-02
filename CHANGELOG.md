@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.1] - 2021-09-01
 - Added self.mission_name, which is populated when a connection is established
 
+## [0.1.1] - 2021-07-01
+### Changed
+- Wrapped attempt to get websocket connection object with a `while` loop for retry
+
 ## [0.1.0] - 2021-05-24
 ### Added
 - CHANGELOG!
