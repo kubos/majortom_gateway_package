@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2022-02-23
+- Expanded set of HTTP response status codes that will trigger retry of websocket connection attempts
+
 ## [0.1.1] - 2021-09-01
 - Added self.mission_name, which is populated when a connection is established
 
