@@ -109,11 +109,11 @@ class GatewayAPI:
                     e.args = [
                         f"Gateway Token is Invalid: {self.gateway_token} Websocket Error: {e.args}"]
                     raise(e)
-                elif e.status_code == 404:
-                    logger.warning("Received 404 when trying to connect, retrying.")
+                elif e.status_code == 404 or e.status_code >= 500:
+                    logger.warning(f"Received {e.status_code} when trying to connect, retrying.")
                     await asyncio.sleep(5)
                 else:
-                    e.args = [f"Unknown status code returned: {e.status_code}"]
+                    e.args = [f"Unhandled status code returned: {e.status_code}"]
                     raise(e)
             except Exception as e:
                 logger.error("Unhandled {} in `connect_with_retries`".format(e.__class__.__name__))
