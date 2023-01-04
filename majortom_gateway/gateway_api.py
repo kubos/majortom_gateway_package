@@ -120,8 +120,8 @@ class GatewayAPI:
                 raise(e)
 
     async def callCallback(self, cb, *args, **kwargs):
-        ''' Calls a callback, handling both when it is an async coroutine or 
-        a regular sync function. 
+        ''' Calls a callback, handling both when it is an async coroutine or
+        a regular sync function.
         Returns: An awaitable task
         '''
         if callable(cb):
@@ -147,7 +147,7 @@ class GatewayAPI:
         message = json.loads(json_data)
         message_type = message["type"]
         logger.debug("From Major Tom: {}".format(message))
-        
+
         if message_type == "command":
             command = Command(message["command"])
             if self.command_callback is not None:
@@ -180,7 +180,7 @@ class GatewayAPI:
                 logger.info("Major Tom expects a ground-station transit will occur: {}".format(message))
         elif message_type == "received_blob":
             if self.received_blob_callback is not None:
-                encoded = message["blob"]
+                encoded = message.get("blob", "")
                 decoded = base64.b64decode(encoded)
                 context = message["context"]
                 asyncio.ensure_future(self.callCallback(self.received_blob_callback, decoded, context, self))
@@ -297,7 +297,7 @@ class GatewayAPI:
 
     async def transmit_blob(self, blob: bytes, context: dict):
         # Transmit bytes to a satellite via a groundstation network. The
-        # required context depends on the specific gsn. 
+        # required context depends on the specific gsn.
         await self.transmit({
             "type": "transmit_blob",
             "context": context,
