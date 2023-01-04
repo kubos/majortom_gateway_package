@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2023-01-03
+- Guarded against a KeyError if a `received_blob` message is received with an empty or missing `"blob"` key
+
 ## [0.1.2] - 2022-02-23
 - Expanded set of HTTP response status codes that will trigger retry of websocket connection attempts
 
