@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2023-01-05
+- Added a `disconnect` method to the gateway API. This allows a user to use the `connect_with_retries` method, but to shut down the connection from their implementation code without triggering automatic re-connect attempts.
+
 ## [0.1.3] - 2023-01-03
 - Guarded against a KeyError if a `received_blob` message is received with an empty or missing `"blob"` key
 
