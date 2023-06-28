@@ -51,6 +51,7 @@ class GatewayAPI:
         self.websocket = None
         self.mission_name = None
         self.queued_payloads = []
+        self.shutdown_intended = False
         self.headers = {
             "X-Gateway-Token": self.gateway_token
         }
@@ -65,6 +66,8 @@ class GatewayAPI:
             self.gateway_endpoint = "wss://" + self.host + "/gateway_api/v1.0"
 
     async def connect(self):
+        self.shutdown_intended = False
+
         if self.http:
             ssl_context = None
         else:
@@ -91,10 +94,25 @@ class GatewayAPI:
             asyncio.ensure_future(self.handle_message(message))
             await asyncio.sleep(0)  # Allows execution to jump to wherever it may be needed, such as future or prev message
 
+    def disconnect(self):
+        if self.websocket:
+            self.shutdown_intended = True
+            self.websocket.close()
+        else:
+            logger.warning(
+                "disconnect called but no open websocket connection exists"
+            )
+
     async def connect_with_retries(self):
         while True:
             try:
                 return await self.connect()
+            except websockets.ConnectionClosed as e:
+                if self.shutdown_intended:
+                    self.websocket = None
+                    return
+                else:
+                    raise (e)
             except (OSError, IncompleteReadError, websockets.ConnectionClosed) as e:
                 self.websocket = None
                 logger.warning("Connection error encountered, retrying in 5 seconds ({})".format(e))
@@ -104,17 +122,17 @@ class GatewayAPI:
                 if e.status_code == 401:
                     e.args = [
                         f"{self.host} requires BasicAuth credentials. Please either include that argument or check the validity. Websocket Error: {e.args}"]
-                    raise(e)
+                    raise (e)
                 elif e.status_code == 403:
                     e.args = [
                         f"Gateway Token is Invalid: {self.gateway_token} Websocket Error: {e.args}"]
-                    raise(e)
+                    raise (e)
                 elif e.status_code == 404 or e.status_code >= 500:
                     logger.warning(f"Received {e.status_code} when trying to connect, retrying.")
                     await asyncio.sleep(5)
                 else:
                     e.args = [f"Unhandled status code returned: {e.status_code}"]
-                    raise(e)
+                    raise (e)
             except Exception as e:
                 logger.error("Unhandled {} in `connect_with_retries`".format(e.__class__.__name__))
                 raise(e)
@@ -373,13 +391,21 @@ class GatewayAPI:
         for field in r.headers:
             logger.debug(f'{field}  :  {r.headers[field]}')
         if r.status_code != 200:
-            raise(RuntimeError(f"File Download Failed. Status code: {r.status_code}"))
+            raise (RuntimeError(f"File Download Failed. Status code: {r.status_code}"))
         filename = re.findall('filename="(.+)";', r.headers['Content-Disposition'])[0]
         logger.info(f"Downloaded Staged File: {filename}")
         return filename, r.content
 
-    def upload_downlinked_file(self, filename: str, filepath: str, system: str, timestamp=time.time()*1000, content_type="binary/octet-stream", command_id=None, metadata=None):
-
+    def upload_downlinked_file(
+        self,
+        filename: str,
+        filepath: str,
+        system: str,
+        timestamp=time.time()*1000,
+        content_type="binary/octet-stream",
+        command_id=None,
+        metadata=None,
+    ):
         # Get size and checksum
         byte_size = int(os.path.getsize(filepath))
         with open(filepath, 'rb') as file_handle:
@@ -404,7 +430,7 @@ class GatewayAPI:
         if request_r.status_code != 200:
             logger.error(
                 f"Transaction Failed. Status code: {request_r.status_code} \n Text Response: {request_r.text}")
-            raise(RuntimeError(f"File Upload Request Failed. Status code: {request_r.status_code}"))
+            raise (RuntimeError(f"File Upload Request Failed. Status code: {request_r.status_code}"))
         request_content = json.loads(request_r.content)
         for field in request_content:
             logger.debug(f'{field}  :  {request_content[field]}')
@@ -425,7 +451,7 @@ class GatewayAPI:
         if upload_r.status_code not in (200, 204):
             logger.error(
                 f"Transaction Failed. Status code: {upload_r.status_code} \n Text Response: {upload_r.text}")
-            raise(RuntimeError(f"File Upload Request Failed. Status code: {upload_r.status_code}"))
+            raise (RuntimeError(f"File Upload Request Failed. Status code: {upload_r.status_code}"))
 
         # Data about the file to show to the operator
         file_data = {
@@ -449,4 +475,4 @@ class GatewayAPI:
         if file_data_r.status_code != 200:
             logger.error(
                 f"Transaction Failed. Status code: {file_data_r.status_code} \n Text Response: {file_data_r.text}")
-            raise(RuntimeError(f"File Data Post Failed. Status code: {file_data_r.status_code}"))
+            raise (RuntimeError(f"File Data Post Failed. Status code: {file_data_r.status_code}"))
