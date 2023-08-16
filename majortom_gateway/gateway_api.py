@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 MAX_QUEUE_LENGTH = 10000
 
+
 class MissingContextError(KeyError):
     pass
 
@@ -38,7 +39,7 @@ class GatewayAPI:
         self.basic_auth = basic_auth
         self.http = http
         if ssl_verify is True and ssl_ca_bundle is None:
-            raise(ValueError('"ssl_ca_bundle" must be a valid path to a certificate bundle if "ssl_verify" is True. Could fetch from https://curl.haxx.se/docs/caextract.html'))
+            raise (ValueError('"ssl_ca_bundle" must be a valid path to a certificate bundle if "ssl_verify" is True. Could fetch from https://curl.haxx.se/docs/caextract.html'))
         else:
             self.ssl_ca_bundle = ssl_ca_bundle
         self.__build_endpoints()
@@ -89,10 +90,12 @@ class GatewayAPI:
 
         logger.info("Connected to Major Tom")
         await asyncio.sleep(1)
+
         await self.empty_queue()
-        async for message in self.websocket:
-            asyncio.ensure_future(self.handle_message(message))
-            await asyncio.sleep(0)  # Allows execution to jump to wherever it may be needed, such as future or prev message
+        if self.websocket:  # in empty_queue, websocket can get closed due to excessive latency and we set it to None. We want to just retry in this case.
+            async for message in self.websocket:
+                asyncio.ensure_future(self.handle_message(message))
+                await asyncio.sleep(0)  # Allows execution to jump to wherever it may be needed, such as future or prev message
 
     def disconnect(self):
         if self.websocket:
@@ -135,7 +138,7 @@ class GatewayAPI:
                     raise (e)
             except Exception as e:
                 logger.error("Unhandled {} in `connect_with_retries`".format(e.__class__.__name__))
-                raise(e)
+                raise (e)
 
     async def callCallback(self, cb, *args, **kwargs):
         ''' Calls a callback, handling both when it is an async coroutine or
@@ -144,11 +147,11 @@ class GatewayAPI:
         '''
         if callable(cb):
             if asyncio.iscoroutinefunction(cb) or inspect.isawaitable(cb) :
-                task = asyncio.ensure_future( cb(*args, **kwargs) )
+                task = asyncio.ensure_future(cb(*args, **kwargs))
             else:
                 # sync_to_async with thread_sensitive=False runs the sync function in its own thread
                 # see https://docs.djangoproject.com/en/3.2/topics/async/#asgiref.sync.sync_to_async
-                task = asyncio.ensure_future( sync_to_async(cb, thread_sensitive=False)(*args, **kwargs))
+                task = asyncio.ensure_future(sync_to_async(cb, thread_sensitive=False)(*args, **kwargs))
             task.add_done_callback(self._handle_task_result)
         else:
             raise ValueError('cb is not callable: {}'.format(dir(cb)))
