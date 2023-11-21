@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2023-11-21
+- Retry connect when websocket connection is clobbered in empty_queue
+
 ## [0.1.4] - 2023-01-05
 - Added a `disconnect` method to the gateway API. This allows a user to use the `connect_with_retries` method, but to shut down the connection from their implementation code without triggering automatic re-connect attempts.
 
