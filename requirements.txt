@@ -3,3 +3,4 @@ websockets>=8.1
 setuptools
 wheel
 asgiref
+python-socketio[asyncio_client]>=5.11

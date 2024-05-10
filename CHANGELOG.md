@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2024-05-10
+- Added `GatewayAPIv2` class, which replaces the websocket-only transport with a Socket.io connection (which uses websockets and falls back to http long-polling).
+
 ## [0.1.5] - 2023-11-21
 - Retry connect when websocket connection is clobbered in empty_queue
 
