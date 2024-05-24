@@ -33,6 +33,7 @@ setuptools.setup(
     install_requires=[
         "websockets",
         "requests",
-        "asgiref"
+        "asgiref",
+        "python-socketio[client]"
     ]
 )
