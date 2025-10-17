@@ -1,5 +1,5 @@
 requests>=2.25.1
-websockets>=8.1
+websockets>=10.0
 setuptools
 wheel
 asgiref

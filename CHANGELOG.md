@@ -6,6 +6,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `test_gateway.py` - Interactive test script for quick gateway connectivity testing
+  - Supports command-line arguments for host, token, and system name
+  - Automatically registers test commands (ping, echo, test_telemetry, test_event)
+  - Includes SSL verification and basic auth support
+  - Provides example implementation of all callback handlers
+- Custom exception hierarchy for better error handling:
+  - `GatewayAPIError` - Base exception for all gateway errors
+  - `ValidationError` - Raised for invalid parameters
+  - `FileTransferError` - Base exception for file operations
+  - `FileDownloadError` - Raised when file download fails
+  - `FileUploadError` - Raised when file upload fails
+- Comprehensive input validation in `GatewayAPI.__init__()`:
+  - Validates all required parameters (host, gateway_token)
+  - Type checking for all optional parameters
+  - Format validation for basic_auth
+  - File existence check for ssl_ca_bundle
+  - Validates all callbacks are callable
+- Increased WebSocket connection timeout to 120 seconds for high-latency connections
+- Better error messages throughout connection handling
+
+### Changed
+- **BREAKING**: `disconnect()` method is now async and must be awaited
+- Improved file download error handling with better Content-Disposition parsing
+- File operation errors now use specific exception types instead of generic RuntimeError
+- Improved error logging to include error types and more context
+- Changed deprecated `logger.warn()` to `logger.warning()`
+- Fixed import style: using `from base64 import b64encode, b64decode` instead of `import base64`
+- Replaced deprecated `asyncio.iscoroutinefunction()` with `inspect.iscoroutinefunction()`
+
+### Fixed
+- Fixed critical bug in `transmit_blob()` - changed from `base64.b64encode` to `b64encode` to match new imports
+- Fixed encoding inconsistency in blob transmission (now consistently uses UTF-8 instead of cp437)
+- Fixed race condition in `disconnect()` method by storing websocket reference before closing
+- Fixed non-Pythonic `!= None` comparisons to use `is not None` (PEP 8)
+- Fixed parameter name shadowing: renamed `dict` parameter to `extra_fields` in `transmit_command_update()`
+- Fixed mutable default argument antipattern in `transmit_command_update()`
+- Fixed websockets 10.0+ compatibility: changed `extra_headers` to `additional_headers`
+- Updated minimum websockets version from 8.1 to 10.0 to reflect API changes
+- Fixed test fixture for Python 3.14 compatibility
+
 ## [0.1.5] - 2023-11-21
 - Retry connect when websocket connection is clobbered in empty_queue
 
