@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import json
 import os
 import re
@@ -7,10 +6,11 @@ import ssl
 import logging
 import time
 import inspect
-from base64 import b64encode
+from base64 import b64encode, b64decode
 import requests
 import hashlib
 from asgiref.sync import sync_to_async
+from majortom_gateway.exceptions import ValidationError, FileDownloadError, FileUploadError
 try:
     # python <= 3.7:
     from asyncio.streams import IncompleteReadError
@@ -33,15 +33,56 @@ class MissingContextError(KeyError):
 
 class GatewayAPI:
     def __init__(self, host, gateway_token, ssl_verify=False, basic_auth=None, http=False, ssl_ca_bundle=None, command_callback=None, error_callback=None, rate_limit_callback=None, cancel_callback=None, transit_callback=None, received_blob_callback=None):
-        self.host = host
-        self.gateway_token = gateway_token
+        # Validate required parameters
+        if not host or not isinstance(host, str) or not host.strip():
+            raise ValidationError("'host' must be a non-empty string")
+
+        if not gateway_token or not isinstance(gateway_token, str) or not gateway_token.strip():
+            raise ValidationError("'gateway_token' must be a non-empty string")
+
+        # Validate optional parameters
+        if not isinstance(ssl_verify, bool):
+            raise ValidationError("'ssl_verify' must be a boolean")
+
+        if not isinstance(http, bool):
+            raise ValidationError("'http' must be a boolean")
+
+        if basic_auth is not None:
+            if not isinstance(basic_auth, str) or ":" not in basic_auth:
+                raise ValidationError("'basic_auth' must be a string in format 'username:password'")
+            username, password = basic_auth.split(":", 1)
+            if not username or not password:
+                raise ValidationError("'basic_auth' username and password must both be non-empty")
+
+        if ssl_ca_bundle is not None:
+            if not isinstance(ssl_ca_bundle, str):
+                raise ValidationError("'ssl_ca_bundle' must be a string path to a certificate bundle")
+            if not os.path.isfile(ssl_ca_bundle):
+                raise ValidationError(f"'ssl_ca_bundle' file does not exist: {ssl_ca_bundle}")
+
+        if ssl_verify is True and ssl_ca_bundle is None:
+            raise ValidationError('"ssl_ca_bundle" must be a valid path to a certificate bundle if "ssl_verify" is True. Could fetch from https://curl.haxx.se/docs/caextract.html')
+
+        # Validate callbacks
+        callbacks = {
+            'command_callback': command_callback,
+            'error_callback': error_callback,
+            'rate_limit_callback': rate_limit_callback,
+            'cancel_callback': cancel_callback,
+            'transit_callback': transit_callback,
+            'received_blob_callback': received_blob_callback,
+        }
+        for name, callback in callbacks.items():
+            if callback is not None and not callable(callback):
+                raise ValidationError(f"'{name}' must be callable (function or coroutine)")
+
+        # Set validated attributes
+        self.host = host.strip()
+        self.gateway_token = gateway_token.strip()
         self.ssl_verify = ssl_verify
         self.basic_auth = basic_auth
         self.http = http
-        if ssl_verify is True and ssl_ca_bundle is None:
-            raise (ValueError('"ssl_ca_bundle" must be a valid path to a certificate bundle if "ssl_verify" is True. Could fetch from https://curl.haxx.se/docs/caextract.html'))
-        else:
-            self.ssl_ca_bundle = ssl_ca_bundle
+        self.ssl_ca_bundle = ssl_ca_bundle
         self.__build_endpoints()
         self.command_callback = command_callback
         self.error_callback = error_callback
@@ -56,7 +97,7 @@ class GatewayAPI:
         self.headers = {
             "X-Gateway-Token": self.gateway_token
         }
-        if self.basic_auth != None:
+        if self.basic_auth is not None:
             userAndPass = b64encode(str.encode(f"{self.basic_auth}")).decode("ascii")
             self.headers['Authorization'] = f'Basic {userAndPass}'
 
@@ -83,10 +124,13 @@ class GatewayAPI:
                 ssl_context.check_hostname = False
                 ssl_context.verify_mode = ssl.CERT_NONE
 
-        logger.info("Connecting to Major Tom")
-        self.websocket = await websockets.connect(self.gateway_endpoint,
-                                                  extra_headers=self.headers,
-                                                  ssl=ssl_context)
+        logger.info("Connecting to Major Tom at {}".format(self.gateway_endpoint))
+        self.websocket = await websockets.connect(
+            self.gateway_endpoint,
+            additional_headers=self.headers,
+            ssl=ssl_context,
+            open_timeout=120  # Increase timeout to 120 seconds
+        )
 
         logger.info("Connected to Major Tom")
         await asyncio.sleep(1)
@@ -97,10 +141,11 @@ class GatewayAPI:
                 asyncio.ensure_future(self.handle_message(message))
                 await asyncio.sleep(0)  # Allows execution to jump to wherever it may be needed, such as future or prev message
 
-    def disconnect(self):
-        if self.websocket:
+    async def disconnect(self):
+        ws = self.websocket
+        if ws:
             self.shutdown_intended = True
-            self.websocket.close()
+            await ws.close()
         else:
             logger.warning(
                 "disconnect called but no open websocket connection exists"
@@ -115,30 +160,33 @@ class GatewayAPI:
                     self.websocket = None
                     return
                 else:
-                    raise (e)
-            except (OSError, IncompleteReadError, websockets.ConnectionClosed) as e:
+                    # Connection closed unexpectedly, retry
+                    self.websocket = None
+                    logger.warning("Connection closed unexpectedly, retrying in 5 seconds. Error: {}".format(str(e)))
+                    await asyncio.sleep(5)
+            except (OSError, IncompleteReadError) as e:
                 self.websocket = None
-                logger.warning("Connection error encountered, retrying in 5 seconds ({})".format(e))
+                logger.warning("Connection error encountered, retrying in 5 seconds. Error type: {}, Error: {}".format(type(e).__name__, str(e)))
                 await asyncio.sleep(5)
             except websockets.exceptions.InvalidStatusCode as e:
                 self.websocket = None
                 if e.status_code == 401:
                     e.args = [
                         f"{self.host} requires BasicAuth credentials. Please either include that argument or check the validity. Websocket Error: {e.args}"]
-                    raise (e)
+                    raise e
                 elif e.status_code == 403:
                     e.args = [
                         f"Gateway Token is Invalid: {self.gateway_token} Websocket Error: {e.args}"]
-                    raise (e)
+                    raise e
                 elif e.status_code == 404 or e.status_code >= 500:
                     logger.warning(f"Received {e.status_code} when trying to connect, retrying.")
                     await asyncio.sleep(5)
                 else:
                     e.args = [f"Unhandled status code returned: {e.status_code}"]
-                    raise (e)
+                    raise e
             except Exception as e:
                 logger.error("Unhandled {} in `connect_with_retries`".format(e.__class__.__name__))
-                raise (e)
+                raise e
 
     async def callCallback(self, cb, *args, **kwargs):
         ''' Calls a callback, handling both when it is an async coroutine or
@@ -146,7 +194,7 @@ class GatewayAPI:
         Returns: An awaitable task
         '''
         if callable(cb):
-            if asyncio.iscoroutinefunction(cb) or inspect.isawaitable(cb) :
+            if inspect.iscoroutinefunction(cb) or inspect.isawaitable(cb):
                 task = asyncio.ensure_future(cb(*args, **kwargs))
             else:
                 # sync_to_async with thread_sensitive=False runs the sync function in its own thread
@@ -202,7 +250,7 @@ class GatewayAPI:
         elif message_type == "received_blob":
             if self.received_blob_callback is not None:
                 encoded = message.get("blob", "")
-                decoded = base64.b64decode(encoded)
+                decoded = b64decode(encoded)
                 context = message["context"]
                 asyncio.ensure_future(self.callCallback(self.received_blob_callback, decoded, context, self))
             else:
@@ -240,7 +288,7 @@ class GatewayAPI:
                 if len(self.queued_payloads) < MAX_QUEUE_LENGTH:
                     self.queued_payloads.append(payload)
                 else:
-                    logger.warn(
+                    logger.warning(
                         f"Major Tom Client local queue maxed out at {MAX_QUEUE_LENGTH} items. Packet is being dropped.")
         else:
             logger.info(
@@ -249,7 +297,7 @@ class GatewayAPI:
             if len(self.queued_payloads) < MAX_QUEUE_LENGTH:
                 self.queued_payloads.append(payload)
             else:
-                logger.warn(
+                logger.warning(
                     f"Major Tom Client local queue maxed out at {MAX_QUEUE_LENGTH} items. Packet is being dropped.")
 
     async def transmit_metrics(self, metrics):
@@ -304,7 +352,7 @@ class GatewayAPI:
             ]
         })
 
-    async def transmit_command_update(self, command_id: int, state: str, dict={}):
+    async def transmit_command_update(self, command_id: int, state: str, extra_fields=None):
         update = {
             "type": "command_update",
             "command": {
@@ -312,8 +360,9 @@ class GatewayAPI:
                 "state": state
             }
         }
-        for field in dict:
-            update['command'][field] = dict[field]
+        if extra_fields:
+            for field, value in extra_fields.items():
+                update['command'][field] = value
         await self.transmit(update)
 
     async def transmit_blob(self, blob: bytes, context: dict):
@@ -322,20 +371,20 @@ class GatewayAPI:
         await self.transmit({
             "type": "transmit_blob",
             "context": context,
-            "blob": base64.b64encode(blob).decode("cp437")
+            "blob": b64encode(blob).decode("utf-8")
         })
 
     async def fail_command(self, command_id: int, errors: list):
-        await self.transmit_command_update(command_id=command_id, state="failed", dict={"errors": errors})
+        await self.transmit_command_update(command_id=command_id, state="failed", extra_fields={"errors": errors})
 
     async def complete_command(self, command_id: int, output: str):
-        await self.transmit_command_update(command_id=command_id, state="completed", dict={"output": output})
+        await self.transmit_command_update(command_id=command_id, state="completed", extra_fields={"output": output})
 
     async def cancel_command(self, command_id: int):
         await self.transmit_command_update(command_id=command_id, state="cancelled")
 
     async def transmitted_command(self, command_id: int, payload="None Provided"):
-        await self.transmit_command_update(command_id=command_id, state="transmitted_to_system", dict={"payload": payload})
+        await self.transmit_command_update(command_id=command_id, state="transmitted_to_system", extra_fields={"payload": payload})
 
     async def update_command_definitions(self, system: str, definitions: dict):
         """
@@ -394,8 +443,17 @@ class GatewayAPI:
         for field in r.headers:
             logger.debug(f'{field}  :  {r.headers[field]}')
         if r.status_code != 200:
-            raise (RuntimeError(f"File Download Failed. Status code: {r.status_code}"))
-        filename = re.findall('filename="(.+)";', r.headers['Content-Disposition'])[0]
+            raise FileDownloadError(f"File Download Failed. Status code: {r.status_code}")
+
+        # Extract filename from Content-Disposition header
+        content_disposition = r.headers.get('Content-Disposition')
+        if not content_disposition:
+            raise FileDownloadError("Missing Content-Disposition header in response")
+
+        filename_match = re.findall('filename="(.+)";', content_disposition)
+        if not filename_match:
+            raise FileDownloadError(f"Could not extract filename from Content-Disposition: {content_disposition}")
+        filename = filename_match[0]
         logger.info(f"Downloaded Staged File: {filename}")
         return filename, r.content
 
@@ -433,7 +491,7 @@ class GatewayAPI:
         if request_r.status_code != 200:
             logger.error(
                 f"Transaction Failed. Status code: {request_r.status_code} \n Text Response: {request_r.text}")
-            raise (RuntimeError(f"File Upload Request Failed. Status code: {request_r.status_code}"))
+            raise FileUploadError(f"File Upload Request Failed. Status code: {request_r.status_code}")
         request_content = json.loads(request_r.content)
         for field in request_content:
             logger.debug(f'{field}  :  {request_content[field]}')
@@ -454,7 +512,7 @@ class GatewayAPI:
         if upload_r.status_code not in (200, 204):
             logger.error(
                 f"Transaction Failed. Status code: {upload_r.status_code} \n Text Response: {upload_r.text}")
-            raise (RuntimeError(f"File Upload Request Failed. Status code: {upload_r.status_code}"))
+            raise FileUploadError(f"File Upload Request Failed. Status code: {upload_r.status_code}")
 
         # Data about the file to show to the operator
         file_data = {
@@ -463,9 +521,9 @@ class GatewayAPI:
             "timestamp": timestamp,
             "system": system
         }
-        if command_id != None:
+        if command_id is not None:
             file_data["command_id"] = command_id
-        if metadata != None:
+        if metadata is not None:
             file_data["metadata"] = metadata
 
         # POST file data to Major Tom
@@ -478,4 +536,4 @@ class GatewayAPI:
         if file_data_r.status_code != 200:
             logger.error(
                 f"Transaction Failed. Status code: {file_data_r.status_code} \n Text Response: {file_data_r.text}")
-            raise (RuntimeError(f"File Data Post Failed. Status code: {file_data_r.status_code}"))
+            raise FileUploadError(f"File Data Post Failed. Status code: {file_data_r.status_code}")

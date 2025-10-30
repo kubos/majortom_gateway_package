@@ -33,9 +33,8 @@ MESSAGE = json.dumps({
 
 @pytest.fixture
 def callback_mock():
-    future = asyncio.Future()
-    future.set_result(42)
-    fn = AsyncMock(return_value=future) 
+    """Create a mock callback that works with both sync and async contexts."""
+    fn = AsyncMock()
     return fn
 
 @pytest.mark.asyncio
