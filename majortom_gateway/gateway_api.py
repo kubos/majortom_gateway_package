@@ -139,9 +139,18 @@ class GatewayAPI:
         if not self.websocket:
             logger.warning("Websocket was closed during empty_queue, will retry connection")
             raise websockets.ConnectionClosed(None, None)
-        async for message in self.websocket:
-            asyncio.ensure_future(self.handle_message(message))
-            await asyncio.sleep(0)  # Allows execution to jump to wherever it may be needed, such as future or prev message
+        try:
+            async for message in self.websocket:
+                asyncio.ensure_future(self.handle_message(message))
+                await asyncio.sleep(0)
+        except websockets.ConnectionClosed:
+            raise
+        finally:
+            self.websocket = None
+
+        if not self.shutdown_intended:
+            logger.warning("Websocket connection ended unexpectedly, triggering reconnect")
+            raise websockets.ConnectionClosed(None, None)
 
     async def disconnect(self):
         ws = self.websocket
@@ -154,23 +163,27 @@ class GatewayAPI:
             )
 
     async def connect_with_retries(self):
+        retry_count = 0
         while True:
             try:
+                retry_count = 0
                 return await self.connect()
-            except websockets.ConnectionClosed as e:
+            except (websockets.ConnectionClosed, websockets.ConnectionClosedError) as e:
                 if self.shutdown_intended:
                     self.websocket = None
+                    logger.info("Websocket disconnected intentionally")
                     return
                 else:
-                    # Connection closed unexpectedly, retry
+                    retry_count += 1
                     self.websocket = None
-                    logger.warning("Connection closed unexpectedly, retrying in 5 seconds. Error: {}".format(str(e)))
+                    logger.warning("Connection closed unexpectedly (attempt {}), retrying in 5 seconds. Error: {}".format(retry_count, str(e)))
                     await asyncio.sleep(5)
             except (OSError, IncompleteReadError) as e:
+                retry_count += 1
                 self.websocket = None
-                logger.warning("Connection error encountered, retrying in 5 seconds. Error type: {}, Error: {}".format(type(e).__name__, str(e)))
+                logger.warning("Connection error encountered (attempt {}), retrying in 5 seconds. Error type: {}, Error: {}".format(retry_count, type(e).__name__, str(e)))
                 await asyncio.sleep(5)
-            except websockets.exceptions.InvalidStatusCode as e:
+            except websockets.InvalidStatusCode as e:
                 self.websocket = None
                 if e.status_code == 401:
                     e.args = [
@@ -181,13 +194,14 @@ class GatewayAPI:
                         f"Gateway Token is Invalid: {self.gateway_token} Websocket Error: {e.args}"]
                     raise e
                 elif e.status_code == 404 or e.status_code >= 500:
-                    logger.warning(f"Received {e.status_code} when trying to connect, retrying.")
+                    retry_count += 1
+                    logger.warning(f"Received {e.status_code} when trying to connect (attempt {retry_count}), retrying in 5 seconds.")
                     await asyncio.sleep(5)
                 else:
                     e.args = [f"Unhandled status code returned: {e.status_code}"]
                     raise e
             except Exception as e:
-                logger.error("Unhandled {} in `connect_with_retries`".format(e.__class__.__name__))
+                logger.error("Unhandled {} in `connect_with_retries`: {}".format(e.__class__.__name__, str(e)))
                 raise e
 
     async def callCallback(self, cb, *args, **kwargs):
