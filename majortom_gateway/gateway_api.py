@@ -136,10 +136,12 @@ class GatewayAPI:
         await asyncio.sleep(1)
 
         await self.empty_queue()
-        if self.websocket:  # in empty_queue, websocket can get closed due to excessive latency and we set it to None. We want to just retry in this case.
-            async for message in self.websocket:
-                asyncio.ensure_future(self.handle_message(message))
-                await asyncio.sleep(0)  # Allows execution to jump to wherever it may be needed, such as future or prev message
+        if not self.websocket:
+            logger.warning("Websocket was closed during empty_queue, will retry connection")
+            raise websockets.ConnectionClosed(None, None)
+        async for message in self.websocket:
+            asyncio.ensure_future(self.handle_message(message))
+            await asyncio.sleep(0)  # Allows execution to jump to wherever it may be needed, such as future or prev message
 
     async def disconnect(self):
         ws = self.websocket

@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced deprecated `asyncio.iscoroutinefunction()` with `inspect.iscoroutinefunction()`
 
 ### Fixed
+- Fixed TypeError when websocket becomes None after unexpected disconnection during `empty_queue()`. Now properly raises `ConnectionClosed` to trigger retry instead of failing with "'async for' requires an object with __aiter__ method"
 - Fixed critical bug in `transmit_blob()` - changed from `base64.b64encode` to `b64encode` to match new imports
 - Fixed encoding inconsistency in blob transmission (now consistently uses UTF-8 instead of cp437)
 - Fixed race condition in `disconnect()` method by storing websocket reference before closing
