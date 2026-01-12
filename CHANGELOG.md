@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed reconnection failing after server-side connection termination (e.g., during server restarts). The `connect()` method now properly propagates `ConnectionClosedError` to `connect_with_retries()` which triggers automatic reconnection with exponential backoff logging.
 - Added explicit handling for both `websockets.ConnectionClosed` and `websockets.ConnectionClosedError` exceptions
 - Improved logging during reconnection attempts with retry count tracking
+- Disabled client-side ping timeout that caused connections to drop after ~22 seconds. Major Tom server handles keep-alive pings.
 - Fixed TypeError when websocket becomes None after unexpected disconnection during `empty_queue()`. Now properly raises `ConnectionClosed` to trigger retry instead of failing with "'async for' requires an object with __aiter__ method"
 - Fixed critical bug in `transmit_blob()` - changed from `base64.b64encode` to `b64encode` to match new imports
 - Fixed encoding inconsistency in blob transmission (now consistently uses UTF-8 instead of cp437)

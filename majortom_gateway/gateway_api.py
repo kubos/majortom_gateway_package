@@ -129,7 +129,9 @@ class GatewayAPI:
             self.gateway_endpoint,
             additional_headers=self.headers,
             ssl=ssl_context,
-            open_timeout=120  # Increase timeout to 120 seconds
+            open_timeout=120,
+            ping_interval=None,
+            ping_timeout=None
         )
 
         logger.info("Connected to Major Tom")
