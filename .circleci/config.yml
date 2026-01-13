@@ -7,10 +7,8 @@ jobs:
     executor: python/default
     steps:
       - add_ssh_keys:
-          # This is the writable deploy key in Github called "Write-Access Key for Publishing and Git Tagging"
-          # The keys are stored in LastPass under CircleCI
           fingerprints:
-            - "12:3e:11:34:9e:3f:b3:6e:9c:64:f6:5e:1f:d9:80:49"
+            - "d6:58:9c:b1:7d:e1:64:56:b6:b2:04:dd:bd:4d:89:4f"
       - checkout
       - python/install-packages:
           pkg-manager: pip
@@ -18,7 +16,6 @@ jobs:
           args: -r deploy_requirements.txt
       - python/dist
       - run:
-          # twine depends on environment variables being defined on the project
           name: Publish to Test-PyPi
           command: | 
             twine upload -u __token__ -p ${TEST_PYPI_TOKEN} --repository testpypi dist/*.tar.gz dist/*.whl
@@ -39,10 +36,8 @@ jobs:
     executor: python/default
     steps:
       - add_ssh_keys:
-          # This is the writable deploy key in Github called "Write-Access Key for Publishing and Git Tagging"
-          # The keys are stored in LastPass under CircleCI
           fingerprints:
-            - "12:3e:11:34:9e:3f:b3:6e:9c:64:f6:5e:1f:d9:80:49"
+            - "d6:58:9c:b1:7d:e1:64:56:b6:b2:04:dd:bd:4d:89:4f"
       - checkout
       - python/install-packages:
           pkg-manager: pip
