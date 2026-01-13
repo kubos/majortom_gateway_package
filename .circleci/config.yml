@@ -2,9 +2,11 @@ version: 2.1
 orbs:
   python: circleci/python@1.4.0
 
-jobs: 
+jobs:
   test-deploy:
-    executor: python/default
+    executor:
+      name: python/default
+      tag: "3.13"
     steps:
       - add_ssh_keys:
           fingerprints:
@@ -33,7 +35,9 @@ jobs:
             git push --delete origin ${new_tag}
 
   deploy:
-    executor: python/default
+    executor:
+      name: python/default
+      tag: "3.13"
     steps:
       - add_ssh_keys:
           fingerprints:
