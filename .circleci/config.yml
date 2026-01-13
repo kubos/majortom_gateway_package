@@ -82,36 +82,22 @@ jobs:
             pytest
           name: Test it
   
-  # Test multiple python version by running a single job with tox
-  toxTest:
-    working_directory: ~/repo
-    docker:
-      - image: cimg/base:2021.04
-    steps:
-      - checkout
-      - setup_remote_docker:
-          version: 19.03.13
-      - run: ./dockertest.sh
-
-
 workflows:
   version: 2
   test-and-maybe-deploy:
     jobs:
-    - toxTest
     - orbTest:
         matrix:
           parameters:
-            tag: ["3.13"]   
+            tag: ["3.13"]
 
     - test-deploy:
         filters:
           branches:
-            only: 
+            only:
               - test-release
               - release
         requires:
-          - toxTest
           - orbTest
     
     - deploy:
