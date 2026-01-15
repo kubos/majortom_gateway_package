@@ -180,9 +180,9 @@ except GatewayAPIError as e:
 
 ## Migration Guide
 
-### From 0.1.5 to Unreleased
+### From 0.1.4 to 0.1.5
 
-**Breaking Change**: The `disconnect()` method is now async and must be awaited.
+**Breaking Change**: Python 3.13+ is now required. The `disconnect()` method is now async and must be awaited.
 
 **Before:**
 ```python
@@ -201,8 +201,8 @@ await gateway.disconnect()  # New async version
 
 ## Requirements
 
-- Python 3.6+
-- websockets >= 8.1
+- Python 3.13+
+- websockets >= 13.0, < 14.0
 - requests
 - asgiref
 
@@ -238,7 +238,7 @@ python test_gateway.py <host> <gateway_token> [options]
 python test_gateway.py majortom.example.com abc123token --system my_satellite
 
 # Local development
-python test_gateway.py localhost:3000 test_token --http --system test_sat
+python test_gateway.py localhost:3001 test_token --http --system test_sat
 
 # With SSL verification
 python test_gateway.py majortom.example.com token123 --ssl-verify --ca-bundle /path/to/ca.pem
