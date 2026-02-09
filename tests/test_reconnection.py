@@ -4,7 +4,8 @@ try:
     from unittest.mock import AsyncMock, MagicMock, patch
 except ImportError:
     from mock import AsyncMock, MagicMock, patch
-from majortom_gateway import GatewayAPI
+from majortom_gateway import GatewayAPI, DEFAULT_MAX_QUEUE_SIZE
+from majortom_gateway.exceptions import ValidationError
 import websockets
 import logging
 
@@ -151,3 +152,51 @@ async def test_empties_queue_on_reconnect():
 
     assert len(gw.queued_payloads) == 0
     assert len(mock_ws.sent_messages) == 2
+
+
+def test_default_max_queue_size():
+    gw = GatewayAPI("host", "gateway_token")
+    assert gw.max_queue_size == DEFAULT_MAX_QUEUE_SIZE
+
+
+def test_custom_max_queue_size():
+    gw = GatewayAPI("host", "gateway_token", max_queue_size=500)
+    assert gw.max_queue_size == 500
+
+
+def test_max_queue_size_zero_disables_queueing():
+    gw = GatewayAPI("host", "gateway_token", max_queue_size=0)
+    assert gw.max_queue_size == 0
+
+
+def test_invalid_max_queue_size_negative():
+    with pytest.raises(ValidationError):
+        GatewayAPI("host", "gateway_token", max_queue_size=-1)
+
+
+def test_invalid_max_queue_size_non_integer():
+    with pytest.raises(ValidationError):
+        GatewayAPI("host", "gateway_token", max_queue_size="100")
+
+
+@pytest.mark.asyncio
+async def test_queue_respects_custom_max_size():
+    gw = GatewayAPI("host", "gateway_token", max_queue_size=3)
+    gw.websocket = None
+
+    for i in range(5):
+        await gw.transmit({"type": "test", "data": f"message{i}"})
+
+    assert len(gw.queued_payloads) == 3
+    assert gw.queued_payloads[0]["data"] == "message0"
+    assert gw.queued_payloads[2]["data"] == "message2"
+
+
+@pytest.mark.asyncio
+async def test_queue_drops_when_max_size_zero():
+    gw = GatewayAPI("host", "gateway_token", max_queue_size=0)
+    gw.websocket = None
+
+    await gw.transmit({"type": "test", "data": "message"})
+
+    assert len(gw.queued_payloads) == 0

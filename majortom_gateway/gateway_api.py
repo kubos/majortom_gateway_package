@@ -24,7 +24,7 @@ from majortom_gateway.command import Command
 
 logger = logging.getLogger(__name__)
 
-MAX_QUEUE_LENGTH = 10000
+DEFAULT_MAX_QUEUE_SIZE = 100
 
 
 class MissingContextError(KeyError):
@@ -32,7 +32,7 @@ class MissingContextError(KeyError):
 
 
 class GatewayAPI:
-    def __init__(self, host, gateway_token, ssl_verify=False, basic_auth=None, http=False, ssl_ca_bundle=None, command_callback=None, error_callback=None, rate_limit_callback=None, cancel_callback=None, transit_callback=None, received_blob_callback=None):
+    def __init__(self, host, gateway_token, ssl_verify=False, basic_auth=None, http=False, ssl_ca_bundle=None, command_callback=None, error_callback=None, rate_limit_callback=None, cancel_callback=None, transit_callback=None, received_blob_callback=None, max_queue_size=None):
         # Validate required parameters
         if not host or not isinstance(host, str) or not host.strip():
             raise ValidationError("'host' must be a non-empty string")
@@ -76,6 +76,10 @@ class GatewayAPI:
             if callback is not None and not callable(callback):
                 raise ValidationError(f"'{name}' must be callable (function or coroutine)")
 
+        if max_queue_size is not None:
+            if not isinstance(max_queue_size, int) or max_queue_size < 0:
+                raise ValidationError("'max_queue_size' must be a non-negative integer")
+
         # Set validated attributes
         self.host = host.strip()
         self.gateway_token = gateway_token.strip()
@@ -90,6 +94,7 @@ class GatewayAPI:
         self.cancel_callback = cancel_callback
         self.transit_callback = transit_callback
         self.received_blob_callback = received_blob_callback
+        self.max_queue_size = max_queue_size if max_queue_size is not None else DEFAULT_MAX_QUEUE_SIZE
         self.websocket = None
         self.mission_name = None
         self.queued_payloads = []
@@ -303,20 +308,19 @@ class GatewayAPI:
                 logger.error(
                     f"Websocket experienced an error when attempting to transmit: {type(e).__name__}: {e}")
                 self.websocket = None
-                if len(self.queued_payloads) < MAX_QUEUE_LENGTH:
+                if len(self.queued_payloads) < self.max_queue_size:
                     self.queued_payloads.append(payload)
                 else:
                     logger.warning(
-                        f"Major Tom Client local queue maxed out at {MAX_QUEUE_LENGTH} items. Packet is being dropped.")
+                        f"Major Tom Client local queue maxed out at {self.max_queue_size} items. Packet is being dropped.")
         else:
             logger.info(
                 "Websocket is not connected, queueing payload until connection is re-established.")
-            # Switch to https://docs.python.org/3/library/asyncio-queue.html
-            if len(self.queued_payloads) < MAX_QUEUE_LENGTH:
+            if len(self.queued_payloads) < self.max_queue_size:
                 self.queued_payloads.append(payload)
             else:
                 logger.warning(
-                    f"Major Tom Client local queue maxed out at {MAX_QUEUE_LENGTH} items. Packet is being dropped.")
+                    f"Major Tom Client local queue maxed out at {self.max_queue_size} items. Packet is being dropped.")
 
     async def transmit_metrics(self, metrics):
         """
