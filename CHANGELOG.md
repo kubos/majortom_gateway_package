@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Configurable `max_queue_size` parameter to control how many payloads are queued while disconnected (default: 100, previously unlimited)
+
 ## [0.1.5] - 2026-01-13
 
 ### Added

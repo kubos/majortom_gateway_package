@@ -66,7 +66,8 @@ gateway = GatewayAPI(
     rate_limit_callback=handle_rate_limit,  # Optional: Handler for rate limit messages
     cancel_callback=handle_cancel,          # Optional: Handler for command cancellation
     transit_callback=handle_transit,        # Optional: Handler for ground station transits
-    received_blob_callback=handle_blob      # Optional: Handler for received binary data
+    received_blob_callback=handle_blob,     # Optional: Handler for received binary data
+    max_queue_size=100,                     # Optional: Max queued payloads when disconnected (default: 100)
 )
 ```
 
@@ -198,6 +199,7 @@ await gateway.disconnect()  # New async version
 - File operation errors now raise specific exceptions (`FileDownloadError`, `FileUploadError`) instead of `RuntimeError`
 - Input parameters are now validated at initialization with clear error messages via `ValidationError`
 - The `dict` parameter in `transmit_command_update()` has been renamed to `extra_fields`
+- The local message queue now defaults to a maximum of 100 items (previously unlimited). Payloads queued while disconnected will be dropped when the limit is reached. Set `max_queue_size` to a higher value if needed.
 
 ## Requirements
 
