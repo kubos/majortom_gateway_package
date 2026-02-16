@@ -2,15 +2,15 @@ version: 2.1
 orbs:
   python: circleci/python@1.4.0
 
-jobs: 
+jobs:
   test-deploy:
-    executor: python/default
+    executor:
+      name: python/default
+      tag: "3.13"
     steps:
       - add_ssh_keys:
-          # This is the writable deploy key in Github called "Write-Access Key for Publishing and Git Tagging"
-          # The keys are stored in LastPass under CircleCI
           fingerprints:
-            - "12:3e:11:34:9e:3f:b3:6e:9c:64:f6:5e:1f:d9:80:49"
+            - "d6:58:9c:b1:7d:e1:64:56:b6:b2:04:dd:bd:4d:89:4f"
       - checkout
       - python/install-packages:
           pkg-manager: pip
@@ -18,7 +18,6 @@ jobs:
           args: -r deploy_requirements.txt
       - python/dist
       - run:
-          # twine depends on environment variables being defined on the project
           name: Publish to Test-PyPi
           command: | 
             twine upload -u __token__ -p ${TEST_PYPI_TOKEN} --repository testpypi dist/*.tar.gz dist/*.whl
@@ -36,13 +35,13 @@ jobs:
             git push --delete origin ${new_tag}
 
   deploy:
-    executor: python/default
+    executor:
+      name: python/default
+      tag: "3.13"
     steps:
       - add_ssh_keys:
-          # This is the writable deploy key in Github called "Write-Access Key for Publishing and Git Tagging"
-          # The keys are stored in LastPass under CircleCI
           fingerprints:
-            - "12:3e:11:34:9e:3f:b3:6e:9c:64:f6:5e:1f:d9:80:49"
+            - "d6:58:9c:b1:7d:e1:64:56:b6:b2:04:dd:bd:4d:89:4f"
       - checkout
       - python/install-packages:
           pkg-manager: pip
@@ -71,7 +70,7 @@ jobs:
     parameters:
       tag:
         description: "python version"
-        default: "3.8"
+        default: "3.13"
         type: string
     executor:
       name: python/default
@@ -87,36 +86,22 @@ jobs:
             pytest
           name: Test it
   
-  # Test multiple python version by running a single job with tox
-  toxTest:
-    working_directory: ~/repo
-    docker:
-      - image: cimg/base:2021.04
-    steps:
-      - checkout
-      - setup_remote_docker:
-          version: 19.03.13
-      - run: ./dockertest.sh
-
-
 workflows:
   version: 2
   test-and-maybe-deploy:
     jobs:
-    - toxTest
     - orbTest:
         matrix:
           parameters:
-            tag: ["3.6", "3.7", "3.8", "3.9"]   
+            tag: ["3.13"]
 
     - test-deploy:
         filters:
           branches:
-            only: 
+            only:
               - test-release
               - release
         requires:
-          - toxTest
           - orbTest
     
     - deploy:
