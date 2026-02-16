@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed `TypeError: BaseEventLoop.create_connection() got an unexpected keyword argument 'additional_headers'` by importing `connect` from `websockets.asyncio.client` (the new API) instead of using `websockets.connect` (which resolves to the legacy API even in websockets 13.x)
+- Restored backward compatibility for `transmit_command_update(dict={...})` — the old `dict` keyword argument now works alongside the new `extra_fields` parameter
 
 ## [0.1.5] - 2026-01-13
 
