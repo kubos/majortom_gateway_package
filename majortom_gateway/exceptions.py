@@ -13,7 +13,7 @@ class ValidationError(GatewayAPIError):
     pass
 
 
-class FileTransferError(GatewayAPIError):
+class FileTransferError(GatewayAPIError, RuntimeError):
     """Base exception for file transfer operations."""
     pass
 
