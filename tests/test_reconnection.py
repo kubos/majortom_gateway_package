@@ -200,3 +200,75 @@ async def test_queue_drops_when_max_size_zero():
     await gw.transmit({"type": "test", "data": "message"})
 
     assert len(gw.queued_payloads) == 0
+
+
+@pytest.mark.asyncio
+async def test_transmit_command_update_with_extra_fields():
+    gw = GatewayAPI("host", "gateway_token")
+    mock_ws = MockWebSocket()
+    gw.websocket = mock_ws
+
+    await gw.transmit_command_update(
+        command_id=1, state="completed", extra_fields={"output": "done"}
+    )
+
+    import json
+    sent = json.loads(mock_ws.sent_messages[0])
+    assert sent["type"] == "command_update"
+    assert sent["command"]["id"] == 1
+    assert sent["command"]["state"] == "completed"
+    assert sent["command"]["output"] == "done"
+
+
+@pytest.mark.asyncio
+async def test_transmit_command_update_with_dict_backward_compat():
+    """The old dict= keyword argument should still work."""
+    gw = GatewayAPI("host", "gateway_token")
+    mock_ws = MockWebSocket()
+    gw.websocket = mock_ws
+
+    await gw.transmit_command_update(
+        command_id=2, state="failed", dict={"errors": ["something broke"]}
+    )
+
+    import json
+    sent = json.loads(mock_ws.sent_messages[0])
+    assert sent["type"] == "command_update"
+    assert sent["command"]["id"] == 2
+    assert sent["command"]["state"] == "failed"
+    assert sent["command"]["errors"] == ["something broke"]
+
+
+@pytest.mark.asyncio
+async def test_transmit_command_update_without_extra_fields():
+    gw = GatewayAPI("host", "gateway_token")
+    mock_ws = MockWebSocket()
+    gw.websocket = mock_ws
+
+    await gw.transmit_command_update(command_id=3, state="cancelled")
+
+    import json
+    sent = json.loads(mock_ws.sent_messages[0])
+    assert sent["type"] == "command_update"
+    assert sent["command"]["id"] == 3
+    assert sent["command"]["state"] == "cancelled"
+    assert "output" not in sent["command"]
+    assert "errors" not in sent["command"]
+
+
+@pytest.mark.asyncio
+async def test_transmit_command_update_extra_fields_takes_precedence():
+    """If both extra_fields and dict are passed, extra_fields wins."""
+    gw = GatewayAPI("host", "gateway_token")
+    mock_ws = MockWebSocket()
+    gw.websocket = mock_ws
+
+    await gw.transmit_command_update(
+        command_id=4, state="completed",
+        extra_fields={"output": "from extra_fields"},
+        dict={"output": "from dict"}
+    )
+
+    import json
+    sent = json.loads(mock_ws.sent_messages[0])
+    assert sent["command"]["output"] == "from extra_fields"

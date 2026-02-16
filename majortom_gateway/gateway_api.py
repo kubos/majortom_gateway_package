@@ -375,7 +375,9 @@ class GatewayAPI:
             ]
         })
 
-    async def transmit_command_update(self, command_id: int, state: str, extra_fields=None):
+    async def transmit_command_update(self, command_id: int, state: str, extra_fields=None, **kwargs):
+        if extra_fields is None and 'dict' in kwargs:
+            extra_fields = kwargs['dict']
         update = {
             "type": "command_update",
             "command": {
