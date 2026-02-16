@@ -19,6 +19,7 @@ except ImportError:
     from asyncio.exceptions import IncompleteReadError
 
 import websockets
+from websockets.asyncio.client import connect as websockets_connect
 
 from majortom_gateway.command import Command
 
@@ -130,7 +131,7 @@ class GatewayAPI:
                 ssl_context.verify_mode = ssl.CERT_NONE
 
         logger.info("Connecting to Major Tom at {}".format(self.gateway_endpoint))
-        self.websocket = await websockets.connect(
+        self.websocket = await websockets_connect(
             self.gateway_endpoint,
             additional_headers=self.headers,
             ssl=ssl_context,

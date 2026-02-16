@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Configurable `max_queue_size` parameter to control how many payloads are queued while disconnected (default: 100, previously unlimited)
 
+### Fixed
+- Fixed `TypeError: BaseEventLoop.create_connection() got an unexpected keyword argument 'additional_headers'` by importing `connect` from `websockets.asyncio.client` (the new API) instead of using `websockets.connect` (which resolves to the legacy API even in websockets 13.x)
+
 ## [0.1.5] - 2026-01-13
 
 ### Added

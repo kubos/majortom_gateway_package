@@ -58,7 +58,7 @@ async def test_reconnects_on_connection_closed_error():
             gw.shutdown_intended = True
         return MockWebSocket(close_after=0)
 
-    with patch.object(websockets, 'connect', side_effect=mock_connect):
+    with patch('majortom_gateway.gateway_api.websockets_connect', side_effect=mock_connect):
         await gw.connect_with_retries()
 
     assert connect_count == max_connects, f"Expected {max_connects} connection attempts, got {connect_count}"
@@ -79,7 +79,7 @@ async def test_reconnects_on_abrupt_disconnect():
             gw.shutdown_intended = True
         return ws
 
-    with patch.object(websockets, 'connect', side_effect=mock_connect):
+    with patch('majortom_gateway.gateway_api.websockets_connect', side_effect=mock_connect):
         with patch('asyncio.sleep', new_callable=AsyncMock):
             await gw.connect_with_retries()
 
@@ -97,7 +97,7 @@ async def test_stops_reconnecting_on_intentional_disconnect():
         gw.shutdown_intended = True
         raise websockets.ConnectionClosed(None, None)
 
-    with patch.object(websockets, 'connect', side_effect=mock_connect):
+    with patch('majortom_gateway.gateway_api.websockets_connect', side_effect=mock_connect):
         await gw.connect_with_retries()
 
     assert connect_count == 1, "Should stop after intentional disconnect"
@@ -117,7 +117,7 @@ async def test_reconnects_on_os_error():
             raise websockets.ConnectionClosed(None, None)
         raise OSError("Connection refused")
 
-    with patch.object(websockets, 'connect', side_effect=mock_connect):
+    with patch('majortom_gateway.gateway_api.websockets_connect', side_effect=mock_connect):
         with patch('asyncio.sleep', new_callable=AsyncMock):
             await gw.connect_with_retries()
 
