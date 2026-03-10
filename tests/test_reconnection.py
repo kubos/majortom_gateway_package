@@ -8,6 +8,7 @@ from majortom_gateway import GatewayAPI, DEFAULT_MAX_QUEUE_SIZE
 from majortom_gateway.exceptions import ValidationError
 import websockets
 import logging
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -272,3 +273,48 @@ async def test_transmit_command_update_extra_fields_takes_precedence():
     import json
     sent = json.loads(mock_ws.sent_messages[0])
     assert sent["command"]["output"] == "from extra_fields"
+
+
+def test_retry_delay_within_expected_range():
+    gw = GatewayAPI("host", "gateway_token")
+    for _ in range(100):
+        assert 0 <= gw._retry_delay(1) <= 2
+        assert 0 <= gw._retry_delay(2) <= 4
+        assert 0 <= gw._retry_delay(3) <= 8
+        assert 0 <= gw._retry_delay(4) <= 16
+        assert 0 <= gw._retry_delay(5) <= 32
+        assert 0 <= gw._retry_delay(6) <= 60
+
+
+def test_retry_delay_caps_at_60_seconds():
+    gw = GatewayAPI("host", "gateway_token")
+    for _ in range(100):
+        delay = gw._retry_delay(20)
+        assert 0 <= delay <= 60
+
+
+@pytest.mark.asyncio
+async def test_reconnect_uses_backoff():
+    gw = GatewayAPI("host", "gateway_token")
+    connect_count = 0
+    max_connects = 4
+    sleep_delays = []
+
+    async def mock_connect(*args, **kwargs):
+        nonlocal connect_count
+        connect_count += 1
+        if connect_count >= max_connects:
+            gw.shutdown_intended = True
+        raise websockets.ConnectionClosed(None, None)
+
+    async def mock_sleep(delay):
+        sleep_delays.append(delay)
+
+    with patch('majortom_gateway.gateway_api.websockets_connect', side_effect=mock_connect):
+        with patch('asyncio.sleep', side_effect=mock_sleep):
+            await gw.connect_with_retries()
+
+    assert len(sleep_delays) == max_connects - 1
+    assert sleep_delays[0] <= 2
+    assert sleep_delays[1] <= 4
+    assert sleep_delays[2] <= 8
