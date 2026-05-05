@@ -13,3 +13,17 @@ def test_logging_output():
 def test_required_args():
     with pytest.raises(TypeError):
         gw = GatewayAPI()
+
+
+def test_file_exceptions_catchable_as_runtime_error():
+    """FileDownloadError and FileUploadError should be catchable as RuntimeError for backward compat."""
+    from majortom_gateway.exceptions import FileDownloadError, FileUploadError, FileTransferError
+
+    with pytest.raises(RuntimeError):
+        raise FileDownloadError("download failed")
+
+    with pytest.raises(RuntimeError):
+        raise FileUploadError("upload failed")
+
+    with pytest.raises(RuntimeError):
+        raise FileTransferError("transfer failed")
