@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import random
 import re
 import ssl
 import logging
@@ -170,12 +171,18 @@ class GatewayAPI:
                 "disconnect called but no open websocket connection exists"
             )
 
+    def _retry_delay(self, retry_count):
+        cap = 60
+        base = 1
+        return random.uniform(0, min(cap, base * 2 ** retry_count))
+
     async def connect_with_retries(self):
         retry_count = 0
         while True:
             try:
+                await self.connect()
                 retry_count = 0
-                return await self.connect()
+                return
             except (websockets.ConnectionClosed, websockets.ConnectionClosedError) as e:
                 if self.shutdown_intended:
                     self.websocket = None
@@ -184,13 +191,15 @@ class GatewayAPI:
                 else:
                     retry_count += 1
                     self.websocket = None
-                    logger.warning("Connection closed unexpectedly (attempt {}), retrying in 5 seconds. Error: {}".format(retry_count, str(e)))
-                    await asyncio.sleep(5)
+                    delay = self._retry_delay(retry_count)
+                    logger.warning("Connection closed unexpectedly (attempt {}), retrying in {:.1f} seconds. Error: {}".format(retry_count, delay, str(e)))
+                    await asyncio.sleep(delay)
             except (OSError, IncompleteReadError) as e:
                 retry_count += 1
                 self.websocket = None
-                logger.warning("Connection error encountered (attempt {}), retrying in 5 seconds. Error type: {}, Error: {}".format(retry_count, type(e).__name__, str(e)))
-                await asyncio.sleep(5)
+                delay = self._retry_delay(retry_count)
+                logger.warning("Connection error encountered (attempt {}), retrying in {:.1f} seconds. Error type: {}, Error: {}".format(retry_count, delay, type(e).__name__, str(e)))
+                await asyncio.sleep(delay)
             except websockets.InvalidStatusCode as e:
                 self.websocket = None
                 if e.status_code == 401:
@@ -203,8 +212,9 @@ class GatewayAPI:
                     raise e
                 elif e.status_code == 404 or e.status_code >= 500:
                     retry_count += 1
-                    logger.warning(f"Received {e.status_code} when trying to connect (attempt {retry_count}), retrying in 5 seconds.")
-                    await asyncio.sleep(5)
+                    delay = self._retry_delay(retry_count)
+                    logger.warning(f"Received {e.status_code} when trying to connect (attempt {retry_count}), retrying in {delay:.1f} seconds.")
+                    await asyncio.sleep(delay)
                 else:
                     e.args = [f"Unhandled status code returned: {e.status_code}"]
                     raise e
